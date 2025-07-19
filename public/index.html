@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Editor - Express Server with JWT Auth</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        .status {
+            background: #e8f5e8;
+            border: 1px solid #4caf50;
+            color: #2e7d32;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .api-endpoint {
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 10px 15px;
+            margin: 10px 0;
+            font-family: monospace;
+        }
+        .auth-note {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Video Editor</h1>
+        <h2>Express Server with JWT Authentication</h2>
+        
+        <div class="status">
+            ✅ Server is running successfully with JWT authentication!
+        </div>
+        
+        <h3>🔐 Authentication Endpoints</h3>
+        <div class="api-endpoint">POST /api/auth/register - Register new user</div>
+        <div class="api-endpoint">POST /api/auth/login - Login user</div>
+        <div class="api-endpoint">POST /api/auth/logout - Logout user</div>
+        
+        <h3>👤 User Endpoints (Protected)</h3>
+        <div class="api-endpoint">GET /api/user - Get user info</div>
+        <div class="api-endpoint">PUT /api/user - Update user info</div>
+        
+        <h3>🎥 Video Endpoints (Protected)</h3>
+        <div class="api-endpoint">GET /api/videos - Get user videos</div>
+        <div class="api-endpoint">POST /api/upload-video - Upload video</div>
+        <div class="api-endpoint">PATCH /api/video/extract-audio - Extract audio</div>
+        <div class="api-endpoint">PUT /api/video/resize - Resize video</div>
+        <div class="api-endpoint">GET /api/get-video-asset - Get video assets</div>
+        
+        <div class="auth-note">
+            <strong>🔑 Authentication Required:</strong> Include JWT token in Authorization header:<br>
+            <code>Authorization: Bearer &lt;your_jwt_token&gt;</code>
+        </div>
+        
+        <h3>📚 Documentation</h3>
+        <p>See README.md for complete API documentation and usage examples.</p>
+        
+        <h3>🧪 Default Test User</h3>
+        <ul>
+            <li><strong>Username:</strong> sangyog</li>
+            <li><strong>Password:</strong> sangyog</li>
+            <li><strong>Email:</strong> sangyog@example.com</li>
+        </ul>
+    </div>
+</body>
+</html>
