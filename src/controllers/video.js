@@ -14,15 +14,19 @@ if (cluster.isPrimary) {
    jobs = new jobQueue();
 }
 
-const getVideos = (req, res, handleErr) => {
-  DB.update();
-  const videos = DB.videos.filter((video) => {
-    return video.userId === req.userId;
-  });
-  res.status(200).json(videos);
+const getVideos = (req, res, next) => {
+  try {
+    DB.update();
+    const videos = DB.videos.filter((video) => {
+      return video.userId === req.userId;
+    });
+    res.status(200).json(videos);
+  } catch (error) {
+    next(error);
+  }
 };
 
-const uploadVideo = async (req, res, handleErr) => {
+const uploadVideo = async (req, res, next) => {
   const specifiedFileName = req.headers.filename;
   const extension = path.extname(specifiedFileName).substring(1).toLowerCase();
   const name = path.parse(specifiedFileName).name;
@@ -30,7 +34,7 @@ const uploadVideo = async (req, res, handleErr) => {
   const FORMATS_SUPPORTED = ["mov", "mp4"];
 
   if (FORMATS_SUPPORTED.indexOf(extension) == -1) {
-    return handleErr({
+    return next({
       status: 400,
       message: "Unsupported video format",
     });
@@ -70,77 +74,80 @@ const uploadVideo = async (req, res, handleErr) => {
       .json({ status: "success", msg: "File was uplaoded successfully" });
   } catch (error) {
     util.deleteFolder(`./storage/${videoId}`);
-    if (error.code !== "ECONNRESET") return handleErr(error);
+    if (error.code !== "ECONNRESET") return next(error);
   }
 };
 
-//return video assests to the client
-const getVideoAsset = async (req, res, handleErr) => {
-  const videoId = req.params.get("videoId");
-  const type = req.params.get("type"); //thumbnail,original,audio,resize
+const getVideoAsset = async (req, res, next) => {
+  const videoId = req.query.videoId;
+  const type = req.query.type; //thumbnail,original,audio,resize
 
   DB.update();
   const video = DB.videos.find((video) => video.videoId === videoId);
   if (!video) {
-    return handleErr({ status: 404, message: "Video not found" });
+    return next({ status: 404, message: "Video not found" });
   }
 
   let file;
   let mimeType;
   let fileName; //final filename for download(with extension)
 
-  switch (type) {
-    case "thumbnail":
-      file = await fs.open(`./storage/${videoId}/thumbnail.jpg`, "r");
-      mimeType = "image/jpeg";
-      break;
+  try {
+    switch (type) {
+      case "thumbnail":
+        file = await fs.open(`./storage/${videoId}/thumbnail.jpg`, "r");
+        mimeType = "image/jpeg";
+        break;
 
-    case "original":
-      file = await fs.open(
-        `./storage/${videoId}/original.${video.extension}`,
-        "r"
-      );
-      mimeType = "video/mp4";
-      fileName = `${video.name}.${video.extension}`;
-      break;
-    case "audio":
-      file = await fs.open(`./storage/${videoId}/audio.aac`, "r");
-      mimeType = "audio/aac";
-      fileName = `${video.name}-audio.aac`;
-      break;
-    case "resize":
-      const dimensions = req.params.get("dimensions");
-      file = await fs.open(
-        `./storage/${videoId}/${dimensions}.${video.extension}`,
-        "r"
-      );
-      mimeType = "video/mp4";
-      fileName = `${video.name}-${dimensions}.${video.extension}`;
-      break;
+      case "original":
+        file = await fs.open(
+          `./storage/${videoId}/original.${video.extension}`,
+          "r"
+        );
+        mimeType = "video/mp4";
+        fileName = `${video.name}.${video.extension}`;
+        break;
+      case "audio":
+        file = await fs.open(`./storage/${videoId}/audio.aac`, "r");
+        mimeType = "audio/aac";
+        fileName = `${video.name}-audio.aac`;
+        break;
+      case "resize":
+        const dimensions = req.query.dimensions;
+        file = await fs.open(
+          `./storage/${videoId}/${dimensions}.${video.extension}`,
+          "r"
+        );
+        mimeType = "video/mp4";
+        fileName = `${video.name}-${dimensions}.${video.extension}`;
+        break;
+    }
+
+    const stat = await file.stat();
+    const fileStream = file.createReadStream();
+
+    //for download
+    if (type !== "thumbnail") {
+      res.setHeader("Content-Disposition", `attachment; filename=${fileName}`);
+    }
+
+    res.setHeader("Content-Type", mimeType);
+    res.setHeader("Content-Length", stat.size);
+    res.status(200);
+    await pipeline(fileStream, res);
+    file.close();
+  } catch (error) {
+    next(error);
   }
-
-  const stat = await file.stat();
-  const fileStream = file.createReadStream();
-
-  //for download
-  if (type !== "thumbnail") {
-    res.setHeader("Content-Disposition", `attachment; filename=${fileName}`);
-  }
-
-  res.setHeader("Content-Type", mimeType);
-  res.setHeader("Content-Length", stat.size);
-  res.status(200);
-  await pipeline(fileStream, res);
-  file.close();
 };
 
-const extractAudio = async (req, res, handleErr) => {
-  const videoId = req.params.get("videoId");
+const extractAudio = async (req, res, next) => {
+  const videoId = req.query.videoId;
   DB.update();
   const video = DB.videos.find((video) => video.videoId === videoId);
 
   if (video.extractedAudio) {
-    return handleErr({
+    return next({
       status: 400,
       message: "The audio has already been extracted for this video",
     });
@@ -157,11 +164,11 @@ const extractAudio = async (req, res, handleErr) => {
     });
   } catch (error) {
     util.deleteFile(targetAudioPath);
-    return handleErr(error);
+    return next(error);
   }
 };
 
-const resizeVideo = async (req, res, handleErr) => {
+const resizeVideo = async (req, res, next) => {
   const videoId = req.body.videoId;
   const width = Number(req.body.width);
   const height = Number(req.body.height);
@@ -181,8 +188,6 @@ const resizeVideo = async (req, res, handleErr) => {
       data: { videoId, width, height },
     });
   }
-
-
 
   res
     .status(200)
