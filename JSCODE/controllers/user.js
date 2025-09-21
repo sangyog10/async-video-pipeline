@@ -1,4 +1,4 @@
-const DB = require("../DB");
+const DB = require("../../src/DB");
 
 const logUserIn = (req, res, handleErr) => {
   const username = req.body.username;

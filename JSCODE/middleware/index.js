@@ -1,4 +1,4 @@
-const DB = require("../DB");
+const DB = require("../../src/DB");
 
 exports.authenticate = (req, res, next) => {
   const routesToAuthenticate = [
