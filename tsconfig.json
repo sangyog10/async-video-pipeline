@@ -1,44 +1,23 @@
 {
-  // Visit https://aka.ms/tsconfig to read more about this file
   "compilerOptions": {
-    // File Layout
+    /* Base Options */
+    "target": "es2022",                       /* Set the JavaScript language version for emitted JavaScript. */
+   "module": "NodeNext", // Crucial for ES Modules
     "rootDir": "./src",
-    "outDir": "./dist",
+    "outDir": "./dist",                        /* Specify the root folder within your source files. */
 
-    // Environment Settings
-    // See also https://aka.ms/tsconfig/module
-    "module": "nodenext",
-    "target": "esnext",
-    "types": [],
-    // For nodejs:
-    // "lib": ["esnext"],
-    // "types": ["node"],
-    // and npm install -D @types/node
+    /* Strict Type-Checking Options */
+    "strict": true,                            /* Enable all strict type-checking options. */
+    "noImplicitAny": true,                 /* Enable error reporting for expressions and declarations with an implied 'any' type. */
 
-    // Other Outputs
-    "sourceMap": true,
-    "declaration": true,
-    "declarationMap": true,
-
-    // Stricter Typechecking Options
-    "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
-
-    // Style Options
-    // "noImplicitReturns": true,
-    // "noImplicitOverride": true,
-    // "noUnusedLocals": true,
-    // "noUnusedParameters": true,
-    // "noFallthroughCasesInSwitch": true,
-    // "noPropertyAccessFromIndexSignature": true,
-
-    // Recommended Options
-    "strict": true,
-    "jsx": "react-jsx",
-    "verbatimModuleSyntax": true,
-    "isolatedModules": true,
-    "noUncheckedSideEffectImports": true,
-    "moduleDetection": "force",
-    "skipLibCheck": true,
-  }
+    /* Module Resolution Options */
+    "moduleResolution": "NodeNext",                /* Specify how TypeScript looks up a file from a given module specifier. */
+    "esModuleInterop": true,                   /* Emit additional JavaScript to ease support for importing CommonJS modules. */
+    
+    /* Advanced Options */
+    "forceConsistentCasingInFileNames": true,  /* Ensure that casing is correct in imports. */
+    "skipLibCheck": true                       /* Skip type checking all .d.ts files. */
+  },
+  "include": ["src/**/*"],                      /* Specifies an array of filenames or patterns to include in the program. */
+  "exclude": ["node_modules"]                   /* Specifies an array of filenames or patterns that should be skipped when resolving include. */
 }
