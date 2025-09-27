@@ -1,4 +1,6 @@
 The app i am making: Video editor
 
 
-Technology: Node js 
+Technology:
+Docker for conteniraztion
+MiniIO for object storage
