@@ -1,7 +1,7 @@
 import express from 'express'
 import dotnev from 'dotenv'
 
-import videoRoute from './routes/videosRoute.ts'
+import videoRoute from './routes/videosRoute.js'
 
 
 dotnev.config()

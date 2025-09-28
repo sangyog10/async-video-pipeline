@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { uploadVideo, getAllVideo, getVideo} from "../controllers/videoController.ts";
-import upload from "../lib/multer.config.ts";
-import { handleUploadErrors } from "../middlewares/multerError.ts";
+import { uploadVideo, getAllVideo, getVideo} from "../controllers/videoController.js";
+import upload from "../lib/multer.config.js";
+import { handleUploadErrors } from "../middlewares/multerError.js";
 
 const router = Router()
 
