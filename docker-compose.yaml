@@ -1,0 +1,47 @@
+version: '3.8'
+
+services:
+  # Node Js service for api handling
+  api-server:
+    build:
+      context: ./api-server
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      # for development, it create live sync for my code without rebuilding
+      - ./api-server:/usr/src/app # link .(my current project) to(:) (/usr/src/app) of the container
+      # it will ignore the live sync for node_modules
+      - /usr/src/app/node_modules
+    env_file:
+      - .env
+    networks:
+      - app-network
+    depends_on:
+      - db
+
+
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    env_file:
+      - .env
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - app-network
+
+
+
+volumes:
+  postgres-data:
+    driver: local
+
+networks:
+  app-network:
+    driver: bridge
+
