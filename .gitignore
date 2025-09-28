@@ -1,9 +1,10 @@
 # Dependencies
 node_modules
-/JSCODE
+JSCODE
 # Build files
-/dist
-/build
+dist
+build
+uploads
 
 # Environment variables
 .env
