@@ -14,6 +14,7 @@ services:
       - ./api-server:/usr/src/app # link .(my current project) to(:) (/usr/src/app) of the container
       # it will ignore the live sync for node_modules
       - /usr/src/app/node_modules
+      - /usr/src/app/dist
     env_file:
       - .env
     networks:
