@@ -1,15 +1,14 @@
 import express from 'express'
 import dotnev from 'dotenv'
 
-import videoRoute from './routes/videosRoute.js'
-
+import apiRouter from './routes/index.js'
 
 dotnev.config()
 
 const app = express()
 
-app.use("/api/v1/videos",videoRoute)
 
+app.use("/api/v1", apiRouter)
 
 
 const PORT = process.env.PORT || 3000
