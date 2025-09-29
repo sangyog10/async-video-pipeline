@@ -1,32 +1,24 @@
-import type { Request, Response } from "express";
-import path from "path";
-import multer from "multer";
-
-const uploadVideo = (req: Request, res: Response) => {
-    console.log('Video processed successfully by controller:', req.file);
-
-    res.status(200).json({
-        message: 'Video uploaded successfully!',
-        fileInfo: {
-            filename: req.file!.filename,
-            path: req.file!.path,
-            size: req.file!.size,
-            mimetype: req.file!.mimetype
-        }
-    });
-}
-
-const getAllVideo = (req: Request, res: Response) => {
-  console.log("Fetching all videos");
-}
-
-const getVideo = (req: Request, res: Response) => {
-  console.log("Fetching video:");
-}
+import db from "../db/database.js"
 
 
-export {
-  uploadVideo,
-  getAllVideo,
-  getVideo
+export class VideoService {
+  /**
+   * All the databse related logic here
+   */
+
+  async uploadVideo() {
+    //process all the db realted logic
+    return console.log("Uploading Video")
+  }
+
+  async getAllVideo() {
+    //process all the db realted logic
+    console.log("All Video")
+    const video = ["video"]
+    return video
+  }
+  async getVideoById() {
+    //process all the db realted logic
+    return console.log("A Video")
+  }
 }
