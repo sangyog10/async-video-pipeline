@@ -1,4 +1,5 @@
-//Import databse connection here
+import db from "../db/database.js"
+
 
 export class VideoService {
   /**
