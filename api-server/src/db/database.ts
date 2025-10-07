@@ -127,7 +127,7 @@ class Database {
    */
   getStatus() {
     return {
-      totolCount: this.pool.totalCount,
+      totalCount: this.pool.totalCount,
       idleCount: this.pool.idleCount,
       waitingCount: this.pool.waitingCount,
       isConnected: this.isConnected
