@@ -3,6 +3,8 @@ import dotnev from 'dotenv'
 
 import db from './db/database.js'
 import apiRouter from './routes/index.js'
+import { createBucket } from './lib/aws.config.js'
+import {  VideoBucket} from './types/bucketName.js'
 
 dotnev.config()
 
@@ -17,6 +19,7 @@ const PORT = process.env.PORT || 3000
 const startServer = async () => {
     try {
         await db.connect()
+        await createBucket(VideoBucket)
         app.listen(PORT, () => {
             console.log(`Server is ready and listening on PORT: ${PORT}`);
         });

@@ -1,7 +1,7 @@
 import db from "../db/database.js"
-import { createBucket, uploadVideoToAws } from "../lib/aws.config.js"
+import { uploadVideoToAws } from "../lib/aws.config.js"
+import { VideoBucket } from "../types/bucketName.js";
 
-const EditingVideoBucketName = "video-storage"
 
 /**
  * All the database related logic here
@@ -9,12 +9,11 @@ const EditingVideoBucketName = "video-storage"
 export class VideoService {
   async uploadVideo(file: Express.Multer.File) {
     const key = `${Date.now()}-${file.originalname}`;
-    const bucketName = EditingVideoBucketName;
-    await createBucket(bucketName)
-    const videoUrl = await uploadVideoToAws(bucketName, key, file.buffer, file.mimetype)
-    if (videoUrl) {
+    const bucketName = VideoBucket;
+    const videoLocation = await uploadVideoToAws(bucketName, key, file.buffer, file.mimetype)
+    if (videoLocation) {
       //save to db
-      return { url: videoUrl }
+    return { videoId: videoLocation };
     }
     throw new Error("Upload failed")
   }
