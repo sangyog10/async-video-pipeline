@@ -8,4 +8,6 @@ MiniIO for object storage
 
 
 
-## Database Connection pool
+
+## Todo:
+Right now the uplaod is limited to 500mb, change the inmemory storage to direct streaming
