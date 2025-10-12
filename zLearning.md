@@ -11,6 +11,16 @@ but for docker , we need to add extra volume  `- /usr/src/app/dist` at the end
 - once the connection is setup btn server and db, it will be persistant and for each query, one connection is picked up from the pool of queue and do the work and relase the connection to pool, so it is very fast
 
 
+## Object storage(minio)
+- It's S3-compatible object storage for large files like videos, scalable, and integrates seamlessly via AWS SDK
+- Wrote docke compose for it
+- I have exposed port 9001 for using its brower console
+- for configuration, the accessKey and secretKey are its user and password resp
+- Right now , i try to save the image to the disk using multer and then stream to minio , but this is inefficient approach
+- But if we directly stream, the video will be held in RAM and will squeeze ram and might crash too
+- So for now, i am buffering in the RAM and limiting to 500mb
+- One approach for large files is streaming directly from frontend to storage(complex)
+
 ## Docker compose:
 1. Understanding volumes
     volumes:
