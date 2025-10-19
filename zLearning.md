@@ -9,6 +9,14 @@ but for docker , we need to add extra volume  `- /usr/src/app/dist` at the end
 - not using any ORM or ODM, just raw and everything written by myself
 - created a pool of postgres with 20 connection
 - once the connection is setup btn server and db, it will be persistant and for each query, one connection is picked up from the pool of queue and do the work and relase the connection to pool, so it is very fast
+- First wrote db/database.ts file which contains code to connect to postgres, run query , migratoins etc and imported the startup in main file and run it so that it runs and connection is established everytime i run the server
+- File structure
+
+db/
+├── database.ts (contains logic to connect, run query, etc)
+├── migrations/
+│   └── (migration SQL files will go here)
+└── migrate.ts (migration runner - you'll build this)
 
 
 ## Object storage(minio)
