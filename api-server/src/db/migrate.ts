@@ -215,10 +215,6 @@ async function migrate(): Promise<void> {
 }
 
 // Run the migration if this file is executed directly
-// (not imported as a module)
-//change to esm syntax
-
-
 if (import.meta.url === `file://${process.argv[1]}`) {
   migrate().then(() => {
     console.log('\nMigration process completed.');
