@@ -28,13 +28,14 @@ const uploadVideo = async (req: Request, res: Response) => {
 const getAllVideo = async (req: Request, res: Response) => {
     const videos = await videoService.getAllVideo();
     return res.status(200).json({
-        message: "Success",
+        message: "Successfully fetched the video",
         video: videos
     });
 };
 
 const getVideo = async (req: Request, res: Response) => {
-    const video = await videoService.getVideoById();
+    const videoId = req.params.videoId;
+    const video = await videoService.getVideoById(videoId);
     return res.status(200).json({
         message: "Success",
         video: video

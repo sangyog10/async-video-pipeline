@@ -1,10 +1,10 @@
 services:
   # Node Js service for api handling
   api-server:
-    container_name: api-server
     build:
       context: ./api-server
       dockerfile: Dockerfile
+    container-name: api-server
     restart: unless-stopped
     ports:
       - "${PORT:-3000}:3000"
@@ -26,7 +26,9 @@ services:
     command: npm run dev
 
 
-
+  db:
+    image: postgres:16-alpine
+    container-name: db
     restart: unless-stopped
     ports:
       - "5432:5432"
@@ -45,7 +47,7 @@ services:
 
   minio:
     image: minio/minio:latest
-    container_name: minio
+    container-name: minio
     restart: unless-stopped
     ports:
       - "9000:9000"

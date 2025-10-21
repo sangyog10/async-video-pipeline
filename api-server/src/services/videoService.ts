@@ -3,29 +3,34 @@ import { uploadVideoToAws } from "../lib/aws.config.js"
 import { VideoBucket } from "../types/bucketName.js";
 
 
-/**
- * All the database related logic here
- */
 export class VideoService {
-  async uploadVideo(file: Express.Multer.File) {
+  async uploadVideo(file: Express.Multer.File): Promise<string[]> {
     const key = `${Date.now()}-${file.originalname}`;
     const bucketName = VideoBucket;
     const videoLocation = await uploadVideoToAws(bucketName, key, file.buffer, file.mimetype)
-    if (videoLocation) {
-      //save to db
-    return { videoId: videoLocation };
+    if (!videoLocation) {
+      throw new Error("Failed to upload to database")
     }
-    throw new Error("Upload failed")
+    const result = await db.query("INSERT INTO video(title, description, url) VALUES($1, $2, $3) RETURNING *",["Video title", "Video description",videoLocation])
+    if(!result){
+      throw new Error("Failed to save details to database")
+    }
+    return result;
   }
 
-  async getAllVideo() {
-    //process all the db realted logic
-    console.log("All Video")
-    const video = ["video"]
-    return video
+  async getAllVideo():Promise<string[]> {
+    const result = await db.query("SELECT * FROM video")
+    if(!result){
+      throw new Error("Failed to fetch result")
+    }
+    return result;
   }
-  async getVideoById() {
-    //process all the db realted logic
-    return "video"
+
+  async getVideoById(videoId:string): Promise<string[]> {
+    const video = await db.query("SELECT * FROM video WHERE id = $1",[videoId])
+    if(!video){
+      throw new Error("Failed to fetch video")
+    }
+    return video;
   }
 }
