@@ -4,7 +4,7 @@ services:
     build:
       context: ./api-server
       dockerfile: Dockerfile
-    container-name: api-server
+    container_name: api-server
     restart: unless-stopped
     ports:
       - "${PORT:-3000}:3000"
@@ -28,7 +28,7 @@ services:
 
   db:
     image: postgres:16-alpine
-    container-name: db
+    container_name: db
     restart: unless-stopped
     ports:
       - "5432:5432"
@@ -47,7 +47,7 @@ services:
 
   minio:
     image: minio/minio:latest
-    container-name: minio
+    container_name: minio
     restart: unless-stopped
     ports:
       - "9000:9000"
