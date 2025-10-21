@@ -1,0 +1,4 @@
+ALTER TABLE Video DROP COLUMN description;
+ALTER TABLE Video DROP COLUMN url;
+ALTER TABLE Video DROP CONSTRAINT IF EXISTS video_client_job_id_key;
+

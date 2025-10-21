@@ -1,0 +1,2 @@
+ALTER TABLE Video DROP COLUMN client_job_id;
+ALTER TABLE Video ADD COLUMN client_job_id INT UNIQUE NOT NULL;

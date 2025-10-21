@@ -1,7 +1,4 @@
-import { S3Client, CreateBucketCommand, PutObjectCommand } from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { Bucket } from 'aws-sdk/clients/iotsitewise.js';
-
+import { S3Client, CreateBucketCommand, PutObjectCommand, PutObjectCommandOutput, DeleteObjectCommand } from '@aws-sdk/client-s3';
 
 const s3Client = new S3Client({
   endpoint: 'http://minio:9000',
@@ -29,7 +26,7 @@ export async function uploadVideoToAws(
   key: string,
   buffer: Buffer,
   contentType: string = 'video/mp4'
-): Promise<{ bucket: string; key: string }> {
+): Promise<PutObjectCommandOutput> {
   const command = new PutObjectCommand({
     Bucket: bucketName,
     Key: key,
@@ -38,11 +35,28 @@ export async function uploadVideoToAws(
   });
 
   try {
-    await s3Client.send(command);
-    // const url = await getSignedUrl(s3Client, command, { expiresIn: 3600 }); // 1hr signed URL(when we want to send presigned url and do the direct upload to cloud)
-    return { bucket: bucketName, key: key };
+    const result = await s3Client.send(command);
+    return result;
   } catch (err) {
     console.error('Upload error:', err);
     throw err;
+  }
+}
+
+export async function deleteVideoFromAws(
+  bucketName: string,
+  key: string
+): Promise<void> {
+  const command = new DeleteObjectCommand({
+    Bucket: bucketName,
+    Key: key
+  })
+
+  try {
+    await s3Client.send(command)
+    console.log(`Successfully deleted ${key} from ${bucketName}`);
+  } catch (error) {
+    console.error('S3 Delete error:', error);
+    throw error;
   }
 }

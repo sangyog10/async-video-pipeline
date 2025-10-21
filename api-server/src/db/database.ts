@@ -36,7 +36,7 @@ class Database {
 
     // Graceful shutdown
     process.on('SIGINT', () => this.close());
-    process.on('SIGTERM', () => this.close());
+    // process.on('SIGTERM', () => this.close()); //TODO:signal terminates everytime during reload and reconnect
   }
 
   /**
