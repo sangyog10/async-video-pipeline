@@ -14,6 +14,9 @@
 `\q` to quit postgres
 
 
+## Folders
+1. api-server
+2. worker
 
 
 ## Flow
