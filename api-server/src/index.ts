@@ -3,7 +3,7 @@ import dotnev from 'dotenv'
 
 import db from './db/database.js'
 import apiRouter from './routes/index.js'
-import { createBucket } from './lib/aws.config.js'
+import { createBucket } from './config/aws.config.js'
 import {  VideoBucket} from './types/bucketName.js'
 
 dotnev.config()
