@@ -1,6 +1,6 @@
 import { QueryResult } from "pg";
 import db from "../db/database.js"
-import { deleteVideoFromAws, uploadVideoToAws } from "../lib/aws.config.js"
+import { deleteVideoFromAws, uploadVideoToAws } from "../config/aws.config.js"
 import { VideoBucket } from "../types/bucketName.js";
 import { Video } from "../types/videoType.js";
 

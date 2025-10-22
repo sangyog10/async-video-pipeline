@@ -1,5 +1,5 @@
 import { Router } from "express";
-import upload from "../lib/multer.config.js";
+import upload from "../config/multer.config.js";
 import { handleUploadErrors } from "../middlewares/multerError.js";
 import { uploadVideo, getAllVideo, getVideo } from "../controller/videoController.js";
 
