@@ -25,6 +25,27 @@ services:
         condition: service_healthy
     command: npm run dev
 
+  worker:
+    build: 
+      context: ./worker
+      dockerfile: Dockerfile
+    container_name: worker
+    restart: unless-stopped
+    volumes:
+      - ./worker:/usr/src/app
+      - /usr/src/app/node_modules
+      - /usr/src/app/dist
+      
+    env_file:
+      - .env
+    networks:
+      - app-network
+    depends_on:
+      db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    command: npm run dev
 
   db:
     image: postgres:16-alpine
