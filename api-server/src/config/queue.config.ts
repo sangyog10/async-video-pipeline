@@ -1,7 +1,7 @@
 import { DefaultJobOptions, Queue, QueueOptions } from "bullmq";
 import { redisConnection } from "./redis.config.js";
 
-const VideoQueueName = "Video-processing"
+export const VideoQueueName = "Video-processing"
 
 
 const defaultJobOptions: DefaultJobOptions = {

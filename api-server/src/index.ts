@@ -4,7 +4,8 @@ import dotnev from 'dotenv'
 import db from './db/database.js'
 import apiRouter from './routes/index.js'
 import { createBucket } from './config/aws.config.js'
-import {  VideoBucket} from './types/bucketName.js'
+import { VideoBucket } from './types/bucketName.js'
+import { retryFailedQueueAdditions } from './cron.js'
 
 dotnev.config()
 
@@ -28,5 +29,8 @@ const startServer = async () => {
         process.exit(1);
     }
 }
+
+setInterval(retryFailedQueueAdditions, 1 * 60 * 1000); //run this job every 1 min
+
 
 startServer()

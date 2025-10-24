@@ -1,7 +1,6 @@
 import { Redis, RedisOptions } from 'ioredis';
 
-
-const redisConfig:RedisOptions = {
+const redisConfig: RedisOptions = {
     port: parseInt(process.env.REDIS_PORT || '6379'),
     host: process.env.REDIS_HOST || 'localhost',
     // password: process.env.REDIS_PASSWORD,

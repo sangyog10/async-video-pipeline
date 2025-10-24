@@ -1,2 +1,6 @@
 ALTER TABLE Video DROP COLUMN client_job_id;
 ALTER TABLE Video ADD COLUMN client_job_id INT UNIQUE NOT NULL;
+ALTER TABLE Video DROP COLUMN description;
+ALTER TABLE Video DROP COLUMN url;
+ALTER TABLE Video DROP CONSTRAINT IF EXISTS video_client_job_id_key;
+
