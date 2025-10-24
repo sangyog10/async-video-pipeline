@@ -1,21 +1,31 @@
-import { QueryResult } from "pg";
 import db from "../db/database.js"
 import { deleteVideoFromAws, uploadVideoToAws } from "../config/aws.config.js"
 import { VideoBucket } from "../types/bucketName.js";
 import { Video } from "../types/videoType.js";
+import { videoProcessingQueue } from "../config/queue.config.js";
 
 
 export class VideoService {
+
+  /**
+   * 1. Upload video to AWS, if it fails return error
+   * 2. Upload metadata to postgres, if it failes, delete video and return error
+   * 3. Upload video ID to queue and set status to uploaded, if it fails, set status to failed and apply cron job
+   */
+
   async uploadVideo(file: Express.Multer.File, clientId: string): Promise<Video> {
     const key = `${Date.now()}-${file.originalname}`;
     const title = file.originalname;
     const bucketName = VideoBucket;
 
     try {
+      //upload video to minio
       const metadata = await uploadVideoToAws(bucketName, key, file.buffer, file.mimetype)
       if (!metadata.ETag) {
         throw new Error("Failed to upload to Minio/s3")
       }
+
+      //upload video info to database
       const sql = `
       INSERT INTO video(title, client_job_id, original_bucket, original_object_key)
       VALUES($1, $2, $3, $4)
@@ -23,12 +33,36 @@ export class VideoService {
     `;
 
       const params = [title, clientId, bucketName, key];
-      const result = await db.queryOne<Video>(sql, params)
-      if (!result) {
+      const videoRecord = await db.queryOne<Video>(sql, params)
+      if (!videoRecord) {
         await deleteVideoFromAws(bucketName, key)
         throw new Error("Failed to save details to database, sucessfully deleted the video");
       }
-      return result
+
+      //Add video to queue
+      try {
+        await videoProcessingQueue.add("Video-queue", videoRecord.id, {
+          attempts: 3,
+          backoff: {
+            type: "exponential",
+            delay: 2000
+          }
+        })
+        await db.query(
+          'UPDATE Video SET status = $1 WHERE id = $2',
+          ['UPLOADED', videoRecord.id]
+        );
+
+      } catch (queueError) {
+        console.error("Failed to add to queue:", queueError);
+        await db.query(
+          'UPDATE Video SET status = $1  WHERE id = $2',
+          ['QUEUE_FAILED', videoRecord.id]
+        );
+        return videoRecord
+      }
+
+      return videoRecord
     } catch (error) {
       console.error("Rollback triggered. Deleting orphaned S3 object:", key);
       await deleteVideoFromAws(bucketName, key)

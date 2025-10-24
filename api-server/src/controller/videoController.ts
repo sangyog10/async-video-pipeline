@@ -18,8 +18,8 @@ const uploadVideo = async (req: Request, res: Response) => {
         const result = await videoService.uploadVideo(req.file, clientId);
 
         console.log("Video uploaded successfully");
-        res.status(200).json({
-            message: 'Video uploaded successfully!',
+        res.status(202).json({
+            message: 'Video uploaded and queued successfully!',
             result: result
         });
 
