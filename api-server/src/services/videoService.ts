@@ -41,7 +41,13 @@ export class VideoService {
 
       //Add video to queue
       try {
-        await videoProcessingQueue.add("Video-queue", {videoId:videoRecord.id})
+        await videoProcessingQueue.add("Video-queue", {
+          videoId:videoRecord.id,
+          bucketName,
+          key,
+          work:"Resize", //TODO:Change this acc to user's request
+        })
+
         await db.query(
           'UPDATE Video SET status = $1 WHERE id = $2',
           ['UPLOADED', videoRecord.id]

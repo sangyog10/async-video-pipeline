@@ -1,8 +1,9 @@
 import { S3Client, CreateBucketCommand, PutObjectCommand, PutObjectCommandOutput, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
-import { createWriteStream, existsSync, mkdirSync } from 'fs';
+import { createWriteStream, existsSync, mkdirSync } from "fs";
 import { join } from 'path';
-import { pipeline } from 'stream';
-import { promisify } from 'util';
+import { pipeline } from "stream";
+import { promisify } from "util";
+
 
 const s3Client = new S3Client({
   endpoint: 'http://minio:9000',
