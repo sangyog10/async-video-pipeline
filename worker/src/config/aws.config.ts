@@ -69,7 +69,7 @@ export async function deleteVideoFromAws(
 export async function downloadVideoFromAws(
   bucketName: string,
   key: string,
-  destinationDir: string = "./uploads"
+  destinationDir: string = "./video"
 ): Promise<string> {
   try {
     // Ensure destination directory exists

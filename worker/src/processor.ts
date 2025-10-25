@@ -1,26 +1,31 @@
 import { Job } from "bullmq";
 import db from "./db/database.js";
 import { downloadVideoFromAws } from "./config/aws.config.js";
+import { handleAudioExtraction } from "./controller/extractAudio.js";
+// import { handleVideoResize } from "./controller/resizeVideo.js";
 
-const destinationPath = './uploads'
 
 export const processVideoJob = async (job: Job) => {
   const { videoId, bucketName, key, work } = job.data;
 
-  // update db status to processing
-  await db.query(
-    'UPDATE Video SET status = $1 WHERE id = $2',
-    ['PROCESSING', videoId]
-  );
+  await db.query("UPDATE Video SET status = $1 WHERE id = $2", ["PROCESSING", videoId]);
 
-  // fetch video from s3
-  await downloadVideoFromAws(bucketName, key, destinationPath)
+  const downloadedVideoPath = await downloadVideoFromAws(bucketName, key, "./video");
 
-  // send video to ffmpeg for editing according to the user's request
+  // if (work?.type === "extractAudio") {
+  // const audioPath = await handleAudioExtraction(downloadedVideoPath);
+  //   console.log("✅ Extracted audio:", audioPath);
+  // }
 
-  //update status to completed and upload video to s3
+  // if (work?.type === "resizeVideo") {
+  //   const { width, height } = work;
+  const width = 256;
+  const height = 256;
+  // const resizedPath = await handleVideoResize(downloadedVideoPath, width, height);
+  //   console.log("✅ Resized video:", resizedPath);
+  // }
 
-  //delete video locally
-
-  //if anything fails, update status to failed and delete video 
+  await db.query("UPDATE Video SET status = $1 WHERE id = $2", ["COMPLETED", videoId]);
 };
+
+
