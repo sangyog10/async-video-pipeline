@@ -12,18 +12,16 @@ export const processVideoJob = async (job: Job) => {
 
   const downloadedVideoPath = await downloadVideoFromAws(bucketName, key, "./video");
 
-  // if (work?.type === "extractAudio") {
-  // const audioPath = await handleAudioExtraction(downloadedVideoPath);
-  //   console.log("✅ Extracted audio:", audioPath);
-  // }
+  if (work?.type === "extractAudio") {
+    const audioPath = await handleAudioExtraction(downloadedVideoPath);
+    console.log("✅ Extracted audio:", audioPath);
+  }
 
-  // if (work?.type === "resizeVideo") {
-  //   const { width, height } = work;
-  const width = 256;
-  const height = 256;
-  const resizedPath = await handleVideoResize(downloadedVideoPath, width, height);
-  //   console.log("✅ Resized video:", resizedPath);
-  // }
+  if (work?.type === "resizeVideo") {
+    const { width, height } = work;
+    const resizedPath = await handleVideoResize(downloadedVideoPath, width, height);
+    console.log("✅ Resized video:", resizedPath);
+  }
 
   await db.query("UPDATE Video SET status = $1 WHERE id = $2", ["COMPLETED", videoId]);
 };
