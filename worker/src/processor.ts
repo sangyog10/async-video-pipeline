@@ -2,7 +2,7 @@ import { Job } from "bullmq";
 import db from "./db/database.js";
 import { downloadVideoFromAws } from "./config/aws.config.js";
 import { handleAudioExtraction } from "./controller/extractAudio.js";
-// import { handleVideoResize } from "./controller/resizeVideo.js";
+import { handleVideoResize } from "./controller/resizeVideo.js";
 
 
 export const processVideoJob = async (job: Job) => {
@@ -21,7 +21,7 @@ export const processVideoJob = async (job: Job) => {
   //   const { width, height } = work;
   const width = 256;
   const height = 256;
-  // const resizedPath = await handleVideoResize(downloadedVideoPath, width, height);
+  const resizedPath = await handleVideoResize(downloadedVideoPath, width, height);
   //   console.log("✅ Resized video:", resizedPath);
   // }
 
