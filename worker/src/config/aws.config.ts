@@ -1,5 +1,6 @@
 import { S3Client, CreateBucketCommand, PutObjectCommand, PutObjectCommandOutput, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
-import { createWriteStream } from "fs";
+import { createWriteStream, existsSync, mkdirSync } from "fs";
+import { join } from 'path';
 import { pipeline } from "stream";
 import { promisify } from "util";
 
@@ -68,9 +69,16 @@ export async function deleteVideoFromAws(
 export async function downloadVideoFromAws(
   bucketName: string,
   key: string,
-  destinationPath: string
-): Promise<void> {
+  destinationDir: string = "./uploads"
+): Promise<string> {
   try {
+    // Ensure destination directory exists
+    if (!existsSync(destinationDir)) {
+      mkdirSync(destinationDir, { recursive: true });
+    }
+
+    const destinationPath = join(destinationDir, key);
+
     const command = new GetObjectCommand({
       Bucket: bucketName,
       Key: key,
@@ -78,14 +86,20 @@ export async function downloadVideoFromAws(
 
     const response = await s3Client.send(command);
 
-    // response.Body is a stream
     if (!response.Body) throw new Error("No file body returned from S3");
 
-    // Stream to local file
-    const streamPipeline = promisify(pipeline);
-    await streamPipeline(response.Body as NodeJS.ReadableStream, createWriteStream(destinationPath));
+    const writeStream = createWriteStream(destinationPath);
+
+    await new Promise<void>((resolve, reject) => {
+      (response.Body as NodeJS.ReadableStream)
+        .on("error", reject) //error while reading from s3
+        .pipe(writeStream)
+        .on("error", reject) //error while writing to disk
+        .on("close", resolve);
+    });
 
     console.log(`File downloaded successfully to ${destinationPath}`);
+    return destinationPath;
   } catch (err) {
     console.error("Error downloading file:", err);
     throw err;
