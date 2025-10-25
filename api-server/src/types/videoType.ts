@@ -7,3 +7,6 @@ export interface Video {
   etag?: string | null;
   created_at: Date;
 }
+
+
+export const VideoQueueName = "Video-processing"
