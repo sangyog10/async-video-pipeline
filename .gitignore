@@ -5,6 +5,8 @@ JSCODE
 dist
 build
 uploads
+video
+audio
 
 # Environment variables
 .env
