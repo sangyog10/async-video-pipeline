@@ -41,17 +41,12 @@ export class VideoService {
 
       //Add video to queue
       try {
-        await videoProcessingQueue.add("Video-queue", videoRecord.id, {
-          attempts: 3,
-          backoff: {
-            type: "exponential",
-            delay: 2000
-          }
-        })
+        await videoProcessingQueue.add("Video-queue", {videoId:videoRecord.id})
         await db.query(
           'UPDATE Video SET status = $1 WHERE id = $2',
           ['UPLOADED', videoRecord.id]
         );
+        console.log("Video added to the queue and updated the status")
 
       } catch (queueError) {
         console.error("Failed to add to queue:", queueError);
