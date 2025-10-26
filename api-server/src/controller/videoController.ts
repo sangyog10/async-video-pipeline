@@ -40,7 +40,7 @@ export const extractAudioFromVideo = async (req: Request, res: Response) => {
                 'UPDATE Video SET status = $1  WHERE id = $2',
                 [JobStatus.QUEUE_FAILED, videoRecord.id]
             );
-            return videoRecord
+            throw queueError
         }
 
         res.status(202).json({
