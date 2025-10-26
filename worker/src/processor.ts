@@ -14,8 +14,7 @@ export const processVideoJob = async (job: Job) => {
   const { videoId, bucket, key } = job.data;
 
   let downloadedVideoPath: string | null = null;
-  let audioPath: string | null = null;
-  let resizedPath: string | null = null;
+  let processedFilePath: string | null = null;
 
   try {
     // Update status to PROCESSING
@@ -29,14 +28,7 @@ export const processVideoJob = async (job: Job) => {
 
     switch (job.name as VideoEditType) {
       case VideoEditType.EXTRACT_AUDIO:
-        audioPath = await handleAudioExtraction(downloadedVideoPath);
-        console.log("Extracted audio:", audioPath);
-        await uploadFileFromLocal(processedBucketName, processedKey, audioPath);
-        await db.query(
-          "UPDATE Video SET status = $1, processed_bucket = $2, processed_object_key = $3 WHERE id = $4",
-          [JobStatus.COMPLETED, processedBucketName, processedKey, videoId]
-        );
-        console.log("Successfully uploaded the edited file to S3");
+        processedFilePath = await handleAudioExtraction(downloadedVideoPath);
         break;
 
       case VideoEditType.RESIZE_VIDEO:
@@ -44,19 +36,22 @@ export const processVideoJob = async (job: Job) => {
         if (!dimension?.width || !dimension?.height) {
           throw new Error("Dimension width and height are required for RESIZE_VIDEO");
         }
-        resizedPath = await handleVideoResize(downloadedVideoPath, dimension.width, dimension.height);
-        await uploadFileFromLocal(processedBucketName, processedKey, resizedPath);
-        await db.query(
-          "UPDATE Video SET status = $1, processed_bucket = $2, processed_object_key = $3 WHERE id = $4",
-          [JobStatus.COMPLETED, processedBucketName, processedKey, videoId]
-        );
-        console.log("Successfully uploaded the resized video to S3");
+        processedFilePath = await handleVideoResize(downloadedVideoPath, dimension.width, dimension.height);
         break;
 
       default:
         console.log("Unspecified job name:", job.name);
         throw new Error(`Unsupported job type: ${job.name}`);
     }
+
+    await uploadFileFromLocal(processedBucketName, processedKey, processedFilePath);
+    await db.query(
+      "UPDATE Video SET status = $1, processed_bucket = $2, processed_object_key = $3 WHERE id = $4",
+      [JobStatus.COMPLETED, processedBucketName, processedKey, videoId]
+    );
+    console.log("Successfully uploaded the edited file to S3");
+
+
   } catch (error) {
     console.error("Error processing video job:", error);
     try {
@@ -77,18 +72,10 @@ export const processVideoJob = async (job: Job) => {
       );
     }
 
-    if (audioPath) {
+    if (processedFilePath) {
       cleanupPromises.push(
-        fs.promises.rm(audioPath).catch(err => {
-          if (err.code !== 'ENOENT') console.error(`Failed to delete ${audioPath}:`, err);
-        })
-      );
-    }
-
-    if (resizedPath) {
-      cleanupPromises.push(
-        fs.promises.rm(resizedPath).catch(err => {
-          if (err.code !== 'ENOENT') console.error(`Failed to delete ${resizedPath}:`, err);
+        fs.promises.rm(processedFilePath).catch(err => {
+          if (err.code !== 'ENOENT') console.error(`Failed to delete ${processedFilePath}:`, err);
         })
       );
     }
