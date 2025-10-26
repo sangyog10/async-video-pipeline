@@ -2,7 +2,6 @@ import db from "../db/database.js"
 import { deleteVideoFromAws, uploadVideoToAws } from "../config/aws.config.js"
 import { VideoBucket } from "../types/bucketName.js";
 import { Video } from "../types/videoType.js";
-import { videoProcessingQueue } from "../config/queue.config.js";
 
 
 export class VideoService {
@@ -38,32 +37,7 @@ export class VideoService {
         await deleteVideoFromAws(bucketName, key)
         throw new Error("Failed to save details to database, sucessfully deleted the video");
       }
-
-      //Add video to queue
-      try {
-        await videoProcessingQueue.add("Video-queue", {
-          videoId:videoRecord.id,
-          bucketName,
-          key,
-          work:"Resize", //TODO:Change this acc to user's request
-        })
-
-        await db.query(
-          'UPDATE Video SET status = $1 WHERE id = $2',
-          ['UPLOADED', videoRecord.id]
-        );
-        console.log("Video added to the queue and updated the status")
-
-      } catch (queueError) {
-        console.error("Failed to add to queue:", queueError);
-        await db.query(
-          'UPDATE Video SET status = $1  WHERE id = $2',
-          ['QUEUE_FAILED', videoRecord.id]
-        );
-        return videoRecord
-      }
-
-      return videoRecord
+      return videoRecord;
     } catch (error) {
       console.error("Rollback triggered. Deleting orphaned S3 object:", key);
       await deleteVideoFromAws(bucketName, key)
