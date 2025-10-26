@@ -1,4 +1,5 @@
 import { Job } from "bullmq";
+import fs from 'fs'
 import db from "./db/database.js";
 import { downloadVideoFromAws, uploadFileFromLocal } from "./config/aws.config.js";
 import { handleAudioExtraction } from "./controller/extractAudio.js";
@@ -12,56 +13,78 @@ const downloadedFileStoringFolder = './downloads'
 export const processVideoJob = async (job: Job) => {
   const { videoId, bucket, key } = job.data;
 
-  if (job.data) {
+  let downloadedVideoPath: string | null = null;
+  let processedFilePath: string | null = null;
+
+  try {
+    // Update status to PROCESSING
+    await db.query("UPDATE Video SET status = $1 WHERE id = $2", [JobStatus.PROCESSING, videoId]);
+
+    // Download video from S3
+    downloadedVideoPath = await downloadVideoFromAws(bucket, key, downloadedFileStoringFolder);
+
+    const processedBucketName = bucket;
+    const processedKey = `edited-${key}`;
+
+    switch (job.name as VideoEditType) {
+      case VideoEditType.EXTRACT_AUDIO:
+        processedFilePath = await handleAudioExtraction(downloadedVideoPath);
+        break;
+
+      case VideoEditType.RESIZE_VIDEO:
+        const { dimension } = job.data;
+        if (!dimension?.width || !dimension?.height) {
+          throw new Error("Dimension width and height are required for RESIZE_VIDEO");
+        }
+        processedFilePath = await handleVideoResize(downloadedVideoPath, dimension.width, dimension.height);
+        break;
+
+      default:
+        console.log("Unspecified job name:", job.name);
+        throw new Error(`Unsupported job type: ${job.name}`);
+    }
+
+    await uploadFileFromLocal(processedBucketName, processedKey, processedFilePath);
+    await db.query(
+      "UPDATE Video SET status = $1, processed_bucket = $2, processed_object_key = $3 WHERE id = $4",
+      [JobStatus.COMPLETED, processedBucketName, processedKey, videoId]
+    );
+    console.log("Successfully uploaded the edited file to S3");
+
+
+  } catch (error) {
+    console.error("Error processing video job:", error);
     try {
-      //update status of the video to processing
-      await db.query("UPDATE Video SET status = $1 WHERE id = $2", [JobStatus.PROCESSING, videoId]);
+      await db.query("UPDATE Video SET status = $1 WHERE id = $2", [JobStatus.FAILED, videoId]);
+    } catch (dbErr) {
+      console.error("Failed to update video status to FAILED:", dbErr);
+    }
+    throw error; // Re-throw for BullMQ to handle retry/failed
+  } finally {
+    // Clean up all temporary files safely
+    const cleanupPromises = [];
 
-      //download video for processing
-      const downloadedVideoPath = await downloadVideoFromAws(bucket, key, downloadedFileStoringFolder);
+    if (downloadedVideoPath) {
+      cleanupPromises.push(
+        fs.promises.rm(downloadedVideoPath).catch(err => {
+          if (err.code !== 'ENOENT') console.error(`Failed to delete ${downloadedVideoPath}:`, err);
+        })
+      );
+    }
 
-      const processedBucketName = bucket;
-      const processedKey = `edited-${key}`
+    if (processedFilePath) {
+      cleanupPromises.push(
+        fs.promises.rm(processedFilePath).catch(err => {
+          if (err.code !== 'ENOENT') console.error(`Failed to delete ${processedFilePath}:`, err);
+        })
+      );
+    }
 
-      switch (job.name as VideoEditType) {
-        // Handling job for extracting audio
-        case VideoEditType.EXTRACT_AUDIO:
-          const audioPath = await handleAudioExtraction(downloadedVideoPath);
-          console.log(" Extracted audio:", audioPath);
-          await uploadFileFromLocal(processedBucketName, processedKey, audioPath)
-          await db.query("UPDATE Video SET status = $1, processed_bucket = $2, processed_object_key = $3 WHERE id = $4", [JobStatus.COMPLETED, processedBucketName, processedKey, videoId]);
-          console.log("Successfully uploaded the edited file to s3")
-          break;
-
-        // Handling job for resizing video
-        case VideoEditType.RESIZE_VIDEO:
-          const { dimension } = job.data;
-          const resizedPath = await handleVideoResize(downloadedVideoPath, dimension.width,dimension.height);
-          console.log("Resized video :", resizedPath);
-          await uploadFileFromLocal(processedBucketName, processedKey, resizedPath)
-          await db.query("UPDATE Video SET status = $1, processed_bucket = $2, processed_object_key = $3 WHERE id = $4", [JobStatus.COMPLETED, processedBucketName, processedKey, videoId]);
-          console.log("Successfully uploaded the edited file to s3")
-          break;
-
-        default:
-          console.log("Unspecified job name")
-      }
-    } catch (error) {
-      console.error("Error. Set the video status to FAILED", error);
-      try {
-        const res = await db.query(
-          "UPDATE Video SET status = $1 WHERE id = $2",
-          [JobStatus.FAILED, videoId]
-        );
-        console.log("DB update result:", res);
-      } catch (dbErr) {
-        console.error("Failed to update status to FAILED:", dbErr);
-      }
-
-      throw error;
-    } finally {
-      //cleanup the local disk
-      //delete downloadedVideoPath
+    try {
+      await Promise.all(cleanupPromises);
+      console.log("Temporary files cleaned up successfully.");
+    } catch (err) {
+      console.error("Error during file cleanup:", err);
     }
   }
 };
