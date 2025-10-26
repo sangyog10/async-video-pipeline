@@ -1,5 +1,5 @@
 export interface Video {
-  id: number; 
+  id: number;
   title: string;
   client_job_id: string;
   original_bucket: string;
@@ -10,3 +10,18 @@ export interface Video {
 
 
 export const VideoQueueName = "Video-processing"
+
+
+export enum VideoEditType {
+  EXTRACT_AUDIO = "extract-audio",
+  RESIZE_VIDEO = "resize",
+}
+
+export enum JobStatus {
+  UPLOADED = "UPLOADED",
+  PROCESSING = "PROCESSING",
+  COMPLETED = "COMPLETED",
+  FAILED = "FAILED",
+  QUEUE_FAILED="QUEUE_FAILED"
+}
+

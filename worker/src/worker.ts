@@ -5,7 +5,6 @@ import { redisConnection } from './config/redis.config.js'
 import { processVideoJob } from './processor.js'
 import { VideoQueueName } from './types/video.type.js'
 
-
 dotnev.config()
 
 

@@ -1,8 +1,8 @@
 import { S3Client, CreateBucketCommand, PutObjectCommand, PutObjectCommandOutput, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import { createWriteStream, existsSync, mkdirSync } from "fs";
 import { join } from 'path';
-import { pipeline } from "stream";
-import { promisify } from "util";
+import fs from 'fs'
+import mime from 'mime-types'
 
 
 const s3Client = new S3Client({
@@ -48,6 +48,31 @@ export async function uploadVideoToAws(
   }
 }
 
+export async function uploadFileFromLocal(
+  bucketName: string,
+  key: string,
+  filePath: string,
+): Promise<PutObjectCommandOutput> {
+  const filestream = fs.createReadStream(filePath)
+  const contentType = mime.lookup(filePath) || "application/octet-stream";
+  
+  const command = new PutObjectCommand({
+    Bucket: bucketName,
+    Key: key,
+    Body: filestream,
+    ContentType: contentType,
+  });
+
+  try {
+    const result = await s3Client.send(command);
+    console.log(`✅ Uploaded ${key} to bucket ${bucketName}`);
+    return result;
+  } catch (err) {
+    console.error('Upload error:', err);
+    throw err;
+  }
+}
+
 export async function deleteVideoFromAws(
   bucketName: string,
   key: string
@@ -69,7 +94,7 @@ export async function deleteVideoFromAws(
 export async function downloadVideoFromAws(
   bucketName: string,
   key: string,
-  destinationDir: string = "./video"
+  destinationDir: string = "./downloads"
 ): Promise<string> {
   try {
     // Ensure destination directory exists
