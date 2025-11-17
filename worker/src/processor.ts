@@ -23,9 +23,6 @@ export const processVideoJob = async (job: Job) => {
     // Download video from S3
     downloadedVideoPath = await downloadVideoFromAws(bucket, key, downloadedFileStoringFolder);
 
-    // const processedBucketName = bucket;
-    // const processedKey = `edited-${key}`;
-
     //pause the operation for 5 seconds to simulate processing time
     // await new Promise(resolve => setTimeout(resolve, 10000));
 

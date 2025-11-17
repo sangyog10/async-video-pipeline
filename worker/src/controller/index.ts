@@ -1,6 +1,6 @@
-import { handleAudioExtraction } from "./extractAudio.js";
-import { handleVideoResize } from "./resizeVideo.js";
-import { handleVideoCompression } from "./compressVideo.js";
-import { handleThumbnailCreation } from "./createThumbnail.js";
+import { handleAudioExtraction } from "./extractAudioController.js";
+import { handleVideoResize } from "./resizeVideoController.js";
+import { handleVideoCompression } from "./compressVideoController.js";
+import { handleThumbnailCreation } from "./createThumbnailController.js";
 
 export  {handleAudioExtraction, handleVideoResize, handleVideoCompression, handleThumbnailCreation};

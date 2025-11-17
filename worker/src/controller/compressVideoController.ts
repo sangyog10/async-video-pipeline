@@ -1,6 +1,6 @@
 import path from "path";
 import fs from "fs";
-import { compressVideo } from "../lib/FF.js";
+import { compressVideo } from "../lib/index.js";
 
 export const handleVideoCompression = async (videoPath: string, compressionRate:number) => {
   const videoName = path.basename(videoPath, path.extname(videoPath));
