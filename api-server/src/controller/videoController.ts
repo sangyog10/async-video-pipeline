@@ -54,7 +54,6 @@ export const extractAudioFromVideo = async (req: Request, res: Response) => {
     }
 };
 
-
 export const resizeVideo = async (req: Request, res: Response) => {
     if (!req.file) {
         return res.status(400).json({ error: 'No file uploaded' });
@@ -111,6 +110,114 @@ export const resizeVideo = async (req: Request, res: Response) => {
         return res.status(500).json({ message: "Internal server error" });
     }
 };
+
+export const compressVideo = async (req: Request, res: Response) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    try {
+        let compressionRate: number;
+        const { clientId, compression } = req.body;
+
+        if (!clientId) {
+            return res.status(400).json({ error: 'Client ID is required' });
+        }
+        if (!compression) {
+            compressionRate= 28; // balanced ratio, medium quality and size
+        } else {
+            compressionRate = Number(compression);
+        }
+
+        const videoRecord = await videoService.uploadVideo(req.file, clientId);
+        console.log("Video uploaded successfully for compression");
+
+        const { original_bucket, original_object_key } = videoRecord;
+        try {
+            await videoProcessingQueue.add(VideoEditType.COMPRESS_VIDEO, {
+                videoId: videoRecord.id,
+                bucket: original_bucket,
+                key: original_object_key,
+                compressionRate: compressionRate
+            })
+            await db.query(
+                'UPDATE Video SET status = $1 WHERE id = $2',
+                [JobStatus.UPLOADED, videoRecord.id]
+            );
+            console.log("Video added to the queue and updated the status")
+
+        } catch (queueError) {
+            console.error("Failed to add to queue:", queueError);
+            await db.query(
+                'UPDATE Video SET status = $1  WHERE id = $2',
+                [JobStatus.QUEUE_FAILED, videoRecord.id]
+            );
+            throw queueError
+        }
+
+        res.status(202).json({
+            message: 'Video uploaded and being processed, please come back later!',
+            result: videoRecord
+        });
+
+    } catch (error) {
+        console.error("Upload failed:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+export const createThumbnail = async (req: Request, res: Response) => {
+    if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    try {
+        const { clientId ,timestamp} = req.body;
+
+        if (!clientId) {
+            return res.status(400).json({ error: 'Client ID is required' });
+        }
+
+        if(!timestamp){
+            return res.status(400).json({ error: 'Please provide thumbnail time in seconds' });
+        }
+
+        const videoRecord = await videoService.uploadVideo(req.file, clientId);
+        console.log("Video uploaded successfully for thumbnail creation");
+
+        const { original_bucket, original_object_key } = videoRecord;
+        try {
+            await videoProcessingQueue.add(VideoEditType.CREATE_THUMBNAIL, {
+                videoId: videoRecord.id,
+                bucket: original_bucket,
+                key: original_object_key,
+                timestamp: timestamp
+            })
+            await db.query(
+                'UPDATE Video SET status = $1 WHERE id = $2',
+                [JobStatus.UPLOADED, videoRecord.id]
+            );
+            console.log("Video added to the queue and updated the status")
+
+        } catch (queueError) {
+            console.error("Failed to add to queue:", queueError);
+            await db.query(
+                'UPDATE Video SET status = $1  WHERE id = $2',
+                [JobStatus.QUEUE_FAILED, videoRecord.id]
+            );
+            throw queueError
+        }
+
+        res.status(202).json({
+            message: 'Video uploaded and being processed, please come back later!',
+            result: videoRecord
+        });
+
+    } catch (error) {
+        console.error("Upload failed:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+ };
 
 export const getAllVideo = async (req: Request, res: Response) => {
     try {

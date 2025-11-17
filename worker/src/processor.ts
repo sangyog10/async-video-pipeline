@@ -1,9 +1,9 @@
 import { Job } from "bullmq";
 import fs from 'fs'
 import db from "./db/database.js";
+import path from "path";
 import { downloadVideoFromAws, uploadFileFromLocal } from "./config/aws.config.js";
-import { handleAudioExtraction } from "./controller/extractAudio.js";
-import { handleVideoResize } from "./controller/resizeVideo.js";
+import { handleAudioExtraction, handleThumbnailCreation, handleVideoCompression, handleVideoResize } from "./controller/index.js";
 import { VideoEditType } from './types/video.type.js'
 import { JobStatus } from "./types/video.type.js";
 
@@ -14,7 +14,7 @@ export const processVideoJob = async (job: Job) => {
   const { videoId, bucket, key } = job.data;
 
   let downloadedVideoPath: string | null = null;
-  let processedFilePath: string | null = null;
+  let processedFilePath: string = "";
 
   try {
     // Update status to PROCESSING
@@ -23,8 +23,8 @@ export const processVideoJob = async (job: Job) => {
     // Download video from S3
     downloadedVideoPath = await downloadVideoFromAws(bucket, key, downloadedFileStoringFolder);
 
-    const processedBucketName = bucket;
-    const processedKey = `edited-${key}`;
+    // const processedBucketName = bucket;
+    // const processedKey = `edited-${key}`;
 
     //pause the operation for 5 seconds to simulate processing time
     // await new Promise(resolve => setTimeout(resolve, 10000));
@@ -43,13 +43,34 @@ export const processVideoJob = async (job: Job) => {
         processedFilePath = await handleVideoResize(downloadedVideoPath, dimension.width, dimension.height);
         break;
 
+      case VideoEditType.COMPRESS_VIDEO:
+        const { compressionRate } = job.data;
+        if (!compressionRate) {
+          throw new Error("Compression rate is required for COMPRESS_VIDEO");
+        }
+        processedFilePath = await handleVideoCompression(downloadedVideoPath, compressionRate);
+        break;
+
+      case VideoEditType.CREATE_THUMBNAIL:
+        const { timestamp } = job.data;
+        if (timestamp === undefined || timestamp === null) {
+          throw new Error("Timestamp is required for creating thumbnail");
+        }
+        processedFilePath = await handleThumbnailCreation(downloadedVideoPath, timestamp);
+        break;
+
       default:
         console.log("Unspecified job name:", job.name);
         throw new Error(`Unsupported job type: ${job.name}`);
     }
 
     // Upload processed file back to S3
+    const originalNameWithoutExt = path.basename(key, path.extname(key)); //Get the filename without the old extension (e.g. "123-video")
+    const newExtension = path.extname(processedFilePath); // Get the extension of the NEW processed file (e.g. ".png" or ".mp4")
+    const processedKey = `edited-${originalNameWithoutExt}${newExtension}`;
+    const processedBucketName = bucket;
     await uploadFileFromLocal(processedBucketName, processedKey, processedFilePath);
+
     // Update status to COMPLETED and store processed file info
     await db.query(
       "UPDATE Video SET status = $1, processed_bucket = $2, processed_object_key = $3 WHERE id = $4",

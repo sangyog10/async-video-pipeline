@@ -32,7 +32,7 @@ export class VideoService {
     `;
 
       const params = [title, clientId, bucketName, key];
-      
+
       const videoRecord = await db.queryOne<Video>(sql, params)
 
       if (!videoRecord) {
@@ -58,26 +58,31 @@ export class VideoService {
   }
 
 
-  async getVideoByIdAndDownloadVideo(videoId: string): Promise<any> { 
+  async getVideoByIdAndDownloadVideo(videoId: string): Promise<any> {
     const videoRecord = await db.queryOne<Video>("SELECT * FROM video WHERE id = $1", [videoId]);
 
     if (!videoRecord) {
       throw new Error("Video not found");
     }
 
-    //  Handle Pending States
-    if (videoRecord.status === JobStatus.PROCESSING || videoRecord.status === JobStatus.UPLOADED) {
+    if (videoRecord.status === JobStatus.UPLOADED) {
       return {
         status: videoRecord.status,
-        message: "Video is still processing"
+        message: "Video is uploaded and queued for processing"
       };
     }
 
-    //  Handle Failed States
+    if (videoRecord.status === JobStatus.PROCESSING) {
+      return {
+        status: videoRecord.status,
+        message: "Video is being processed. Please wait some time."
+      };
+    }
+
     if (videoRecord.status === JobStatus.FAILED || videoRecord.status === JobStatus.QUEUE_FAILED) {
       return {
         status: videoRecord.status,
-        message: "Video processing failed"
+        message: "Video processing failed. Please try once again"
       };
     }
 
@@ -90,7 +95,7 @@ export class VideoService {
 
       return {
         ...videoRecord,
-        downloadUrl: downloadUrl 
+        downloadUrl: downloadUrl
       };
     }
 
