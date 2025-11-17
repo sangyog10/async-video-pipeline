@@ -1,6 +1,6 @@
 import path from "path";
 import fs from "fs";
-import { createThumbnail } from "../lib/FF.js";
+import { createThumbnail } from "../lib/index.js";
 
 export const handleThumbnailCreation = async (videoPath: string, timestamp:number) => {
     const videoName = path.basename(videoPath, path.extname(videoPath));

@@ -1,6 +1,7 @@
 import path from "path";
 import fs from "fs";
-import { extractAudio } from "../lib/FF.js";
+import { extractAudio } from "../lib/index.js";
+
 
 export const handleAudioExtraction = async (videoPath: string) => {
   const videoName = path.basename(videoPath, path.extname(videoPath));

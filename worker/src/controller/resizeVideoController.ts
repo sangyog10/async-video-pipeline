@@ -1,6 +1,6 @@
 import path from "path";
 import fs from "fs";
-import { resizeVideo } from "../lib/FF.js";
+import { resizeVideo } from "../lib/index.js";
 
 export const handleVideoResize = async (
   videoPath: string,
