@@ -26,6 +26,9 @@ export const processVideoJob = async (job: Job) => {
     const processedBucketName = bucket;
     const processedKey = `edited-${key}`;
 
+    //pause the operation for 5 seconds to simulate processing time
+    // await new Promise(resolve => setTimeout(resolve, 10000));
+
     // Process video based on job type
     switch (job.name as VideoEditType) {
       case VideoEditType.EXTRACT_AUDIO:
