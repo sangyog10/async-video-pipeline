@@ -1,9 +1,11 @@
 export const VideoQueueName = "Video-processing";
 
-export enum VideoEditType{
+export enum VideoEditType {
   EXTRACT_AUDIO = "extract-audio",
   RESIZE_VIDEO = "resize",
-} 
+  COMPRESS_VIDEO = "compress",
+  CREATE_THUMBNAIL = "create-thumbnail"
+}
 
 export enum JobStatus {
   UPLOADED = "UPLOADED",
