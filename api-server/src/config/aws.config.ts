@@ -1,8 +1,8 @@
 import { S3Client, CreateBucketCommand, PutObjectCommand, PutObjectCommandOutput, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { createWriteStream, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { pipeline } from 'stream';
-import { promisify } from 'util';
+
 
 const s3Client = new S3Client({
   endpoint: 'http://minio:9000',
@@ -103,4 +103,18 @@ export async function downloadVideoFromAws(
     console.error("Error downloading file:", err);
     throw err;
   }
+}
+
+export async function getPresignedDownloadUrl(
+  bucketName: string,
+  key: string
+): Promise<string> {
+  const command = new GetObjectCommand({
+    Bucket: bucketName,
+    Key: key,
+  });
+
+  // Generate a URL valid for 1 hour (3600 seconds)
+  const url = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+  return url;
 }

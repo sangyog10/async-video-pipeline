@@ -1,7 +1,7 @@
 import db from "../db/database.js"
-import { deleteVideoFromAws, uploadVideoToAws } from "../config/aws.config.js"
+import { deleteVideoFromAws, getPresignedDownloadUrl, uploadVideoToAws } from "../config/aws.config.js"
 import { VideoBucket } from "../types/bucketName.js";
-import { Video } from "../types/videoType.js";
+import { JobStatus, Video } from "../types/videoType.js";
 
 
 export class VideoService {
@@ -32,11 +32,14 @@ export class VideoService {
     `;
 
       const params = [title, clientId, bucketName, key];
+      
       const videoRecord = await db.queryOne<Video>(sql, params)
+
       if (!videoRecord) {
         await deleteVideoFromAws(bucketName, key)
         throw new Error("Failed to save details to database, sucessfully deleted the video");
       }
+
       return videoRecord;
     } catch (error) {
       console.error("Rollback triggered. Deleting orphaned S3 object:", key);
@@ -55,11 +58,42 @@ export class VideoService {
   }
 
 
-  async getVideoById(videoId: string): Promise<Video | null> {
-    const video = await db.queryOne<Video>("SELECT * FROM video WHERE id = $1", [videoId])
-    if (!video) {
-      throw new Error("Failed to fetch video")
+  async getVideoByIdAndDownloadVideo(videoId: string): Promise<any> { 
+    const videoRecord = await db.queryOne<Video>("SELECT * FROM video WHERE id = $1", [videoId]);
+
+    if (!videoRecord) {
+      throw new Error("Video not found");
     }
-    return video;
+
+    //  Handle Pending States
+    if (videoRecord.status === JobStatus.PROCESSING || videoRecord.status === JobStatus.UPLOADED) {
+      return {
+        status: videoRecord.status,
+        message: "Video is still processing"
+      };
+    }
+
+    //  Handle Failed States
+    if (videoRecord.status === JobStatus.FAILED || videoRecord.status === JobStatus.QUEUE_FAILED) {
+      return {
+        status: videoRecord.status,
+        message: "Video processing failed"
+      };
+    }
+
+    //  Handle Completed State (Generate URL)
+    if (videoRecord.status === JobStatus.COMPLETED && videoRecord.processed_bucket && videoRecord.processed_object_key) {
+      const downloadUrl = await getPresignedDownloadUrl(
+        videoRecord.processed_bucket,
+        videoRecord.processed_object_key
+      );
+
+      return {
+        ...videoRecord,
+        downloadUrl: downloadUrl 
+      };
+    }
+
+    throw new Error("Video is in an unknown state");
   }
 }

@@ -6,6 +6,9 @@ export interface Video {
   original_object_key: string;
   etag?: string | null;
   created_at: Date;
+  status?: JobStatus;
+  processed_object_key?: string | null;
+  processed_bucket?: string | null;
 }
 
 

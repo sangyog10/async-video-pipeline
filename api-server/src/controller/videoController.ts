@@ -125,16 +125,16 @@ export const getAllVideo = async (req: Request, res: Response) => {
     }
 };
 
-export const getVideo = async (req: Request, res: Response) => {
+export const getVideoIdAndDownloadVideo = async (req: Request, res: Response) => {
     try {
         const videoId = req.params.videoId;
-        const video = await videoService.getVideoById(videoId);
+        const result = await videoService.getVideoByIdAndDownloadVideo(videoId);
         return res.status(200).json({
             message: "Success",
-            video: video
+            video: result
         });
-    } catch (error) {
+    } catch (error: any) {
         console.error("Failed to get video:", error);
-        return res.status(500).json({ message: "Internal server error" });
+        return res.status(500).json({ message: error.message });
     }
 };
