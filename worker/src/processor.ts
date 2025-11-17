@@ -26,6 +26,7 @@ export const processVideoJob = async (job: Job) => {
     const processedBucketName = bucket;
     const processedKey = `edited-${key}`;
 
+    // Process video based on job type
     switch (job.name as VideoEditType) {
       case VideoEditType.EXTRACT_AUDIO:
         processedFilePath = await handleAudioExtraction(downloadedVideoPath);
@@ -44,7 +45,9 @@ export const processVideoJob = async (job: Job) => {
         throw new Error(`Unsupported job type: ${job.name}`);
     }
 
+    // Upload processed file back to S3
     await uploadFileFromLocal(processedBucketName, processedKey, processedFilePath);
+    // Update status to COMPLETED and store processed file info
     await db.query(
       "UPDATE Video SET status = $1, processed_bucket = $2, processed_object_key = $3 WHERE id = $4",
       [JobStatus.COMPLETED, processedBucketName, processedKey, videoId]

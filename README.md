@@ -71,4 +71,9 @@ This project consists of 6 core services defined in `docker-compose.yml`:
 ### 1. Clone the Repository
 ```sh
 git clone [https://github.com/Sangyog10/Video-Editor.git]
-cd project
+cd project```
+
+### Run Migration
+```sh
+docker exec -it api-server npm run migrate 
+```

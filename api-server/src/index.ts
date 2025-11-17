@@ -11,7 +11,9 @@ dotnev.config()
 
 const app = express()
 
-
+app.get("/", (req, res) => {
+    res.json({ message: "API is working" })
+})
 app.use("/api/v1", apiRouter)
 
 
@@ -30,7 +32,7 @@ const startServer = async () => {
     }
 }
 
-setInterval(retryFailedQueueAdditions, 1 * 60 * 1000); //run this job every 1 min
+setInterval(retryFailedQueueAdditions, 5 * 60 * 1000); //run this job every 5 min
 
 
 startServer()
