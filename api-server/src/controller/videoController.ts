@@ -118,13 +118,13 @@ export const compressVideo = async (req: Request, res: Response) => {
 
     try {
         let compressionRate: number;
-        const { clientId, compression } = req.body;
+        const { clientId, compression, preset } = req.body;
 
         if (!clientId) {
             return res.status(400).json({ error: 'Client ID is required' });
         }
         if (!compression) {
-            compressionRate= 28; // balanced ratio, medium quality and size
+            compressionRate = 28; // balanced ratio, medium quality and size
         } else {
             compressionRate = Number(compression);
         }
@@ -138,7 +138,8 @@ export const compressVideo = async (req: Request, res: Response) => {
                 videoId: videoRecord.id,
                 bucket: original_bucket,
                 key: original_object_key,
-                compressionRate: compressionRate
+                compressionRate: compressionRate,
+                preset: preset || "ultrafast"
             })
             await db.query(
                 'UPDATE Video SET status = $1 WHERE id = $2',
@@ -172,13 +173,13 @@ export const createThumbnail = async (req: Request, res: Response) => {
     }
 
     try {
-        const { clientId ,timestamp} = req.body;
+        const { clientId, timestamp } = req.body;
 
         if (!clientId) {
             return res.status(400).json({ error: 'Client ID is required' });
         }
 
-        if(!timestamp){
+        if (!timestamp) {
             return res.status(400).json({ error: 'Please provide thumbnail time in seconds' });
         }
 
@@ -217,7 +218,7 @@ export const createThumbnail = async (req: Request, res: Response) => {
         console.error("Upload failed:", error);
         return res.status(500).json({ message: "Internal server error" });
     }
- };
+};
 
 export const getAllVideo = async (req: Request, res: Response) => {
     try {

@@ -2,7 +2,7 @@ import path from "path";
 import fs from "fs";
 import { compressVideo } from "../lib/index.js";
 
-export const handleVideoCompression = async (videoPath: string, compressionRate:number) => {
+export const handleVideoCompression = async (videoPath: string, compressionRate: number, preset: string) => {
   const videoName = path.basename(videoPath, path.extname(videoPath));
   const outputDir = "./uploads";
   if (!fs.existsSync(outputDir)) {
@@ -10,7 +10,7 @@ export const handleVideoCompression = async (videoPath: string, compressionRate:
   }
 
   const targetCompressedPath = path.join(outputDir, `${videoName}_compressed.mp4`);
-  await compressVideo(videoPath, targetCompressedPath,compressionRate);
+  await compressVideo(videoPath, targetCompressedPath, compressionRate, preset);
   return targetCompressedPath;
 };
 

@@ -10,13 +10,14 @@ import { spawn } from "node:child_process";
 export const compressVideo = (
   originalVideoPath: string,
   targetVideoPath: string,
-  compressionRate: number
+  compressionRate: number,
+  preset: string
 ): Promise<void> => {
   return new Promise((resolve, reject) => {
     const ffmpeg = spawn("ffmpeg", [
       "-i", originalVideoPath,
       "-vcodec", "libx264", // Use H.264 codec for video compression
-      "-preset", "ultrafast", // Preset for encoding speed 
+      "-preset", preset, // Preset for encoding speed 
       "-threads", "4", // Use 4 threads for processing
       "-crf", compressionRate.toString(), // Set the CRF value for compression
       "-c:a", "copy", //copy the audio as it is
