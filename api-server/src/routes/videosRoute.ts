@@ -1,20 +1,256 @@
 import { Router } from "express";
 import upload from "../config/multer.config.js";
 import { handleUploadErrors } from "../middlewares/multerError.js";
-import { extractAudioFromVideo, getAllVideo, getVideoIdAndDownloadVideo, resizeVideo,compressVideo ,createThumbnail} from "../controller/videoController.js";
+import { extractAudioFromVideo, getAllVideo, getVideoIdAndDownloadVideo, resizeVideo, compressVideo, createThumbnail } from "../controller/videoController.js";
 
-const router = Router()
+const router = Router();
 
-router.post("/extract-audio",upload.single('video'),handleUploadErrors, extractAudioFromVideo)
+/**
+ * @swagger
+ * components:
+ *   schemas:
+ *     Video:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: string
+ *           description: The auto-generated id of the video
+ *         original_bucket:
+ *           type: string
+ *           description: The S3 bucket where the original video is stored
+ *         original_object_key:
+ *           type: string
+ *           description: The S3 key of the original video
+ *         status:
+ *           type: string
+ *           description: The processing status of the video
+ *         created_at:
+ *           type: string
+ *           format: date-time
+ *           description: The date the video was uploaded
+ */
 
-router.post("/resize",upload.single('video'),handleUploadErrors, resizeVideo)
+/**
+ * @swagger
+ * /videos/extract-audio:
+ *   post:
+ *     summary: Extract audio from a video
+ *     tags: [Videos]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               video:
+ *                 type: string
+ *                 format: binary
+ *                 description: The video file to upload
+ *               clientId:
+ *                 type: string
+ *                 description: The ID of the client
+ *     responses:
+ *       202:
+ *         description: Video uploaded and processing started
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 result:
+ *                   $ref: '#/components/schemas/Video'
+ *       400:
+ *         description: Bad request (missing file or clientId)
+ *       500:
+ *         description: Internal server error
+ */
+router.post("/extract-audio", upload.single('video'), handleUploadErrors, extractAudioFromVideo);
 
-router.post("/compress",upload.single('video'),handleUploadErrors, compressVideo)
+/**
+ * @swagger
+ * /videos/resize:
+ *   post:
+ *     summary: Resize a video
+ *     tags: [Videos]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               video:
+ *                 type: string
+ *                 format: binary
+ *                 description: The video file to upload
+ *               clientId:
+ *                 type: string
+ *                 description: The ID of the client
+ *               height:
+ *                 type: integer
+ *                 description: The target height
+ *               width:
+ *                 type: integer
+ *                 description: The target width
+ *     responses:
+ *       202:
+ *         description: Video uploaded and processing started
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 result:
+ *                   $ref: '#/components/schemas/Video'
+ *       400:
+ *         description: Bad request (missing file, clientId, height, or width)
+ *       500:
+ *         description: Internal server error
+ */
+router.post("/resize", upload.single('video'), handleUploadErrors, resizeVideo);
 
-router.post("/create-thumbnail",upload.single('video'),handleUploadErrors, createThumbnail)
+/**
+ * @swagger
+ * /videos/compress:
+ *   post:
+ *     summary: Compress a video
+ *     tags: [Videos]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               video:
+ *                 type: string
+ *                 format: binary
+ *                 description: The video file to upload
+ *               clientId:
+ *                 type: string
+ *                 description: The ID of the client
+ *               compression:
+ *                 type: integer
+ *                 description: Compression rate (default 28)
+ *     responses:
+ *       202:
+ *         description: Video uploaded and processing started
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 result:
+ *                   $ref: '#/components/schemas/Video'
+ *       400:
+ *         description: Bad request (missing file or clientId)
+ *       500:
+ *         description: Internal server error
+ */
+router.post("/compress", upload.single('video'), handleUploadErrors, compressVideo);
 
+/**
+ * @swagger
+ * /videos/create-thumbnail:
+ *   post:
+ *     summary: Create a thumbnail from a video
+ *     tags: [Videos]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               video:
+ *                 type: string
+ *                 format: binary
+ *                 description: The video file to upload
+ *               clientId:
+ *                 type: string
+ *                 description: The ID of the client
+ *               timestamp:
+ *                 type: integer
+ *                 description: Timestamp in seconds for the thumbnail
+ *     responses:
+ *       202:
+ *         description: Video uploaded and processing started
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 result:
+ *                   $ref: '#/components/schemas/Video'
+ *       400:
+ *         description: Bad request (missing file, clientId, or timestamp)
+ *       500:
+ *         description: Internal server error
+ */
+router.post("/create-thumbnail", upload.single('video'), handleUploadErrors, createThumbnail);
 
-router.get("/", getAllVideo)
-router.get("/:videoId", getVideoIdAndDownloadVideo)
+/**
+ * @swagger
+ * /videos:
+ *   get:
+ *     summary: Get all videos
+ *     tags: [Videos]
+ *     responses:
+ *       200:
+ *         description: List of all videos
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 video:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Video'
+ *       500:
+ *         description: Internal server error
+ */
+router.get("/", getAllVideo);
 
-export default router
+/**
+ * @swagger
+ * /videos/{videoId}:
+ *   get:
+ *     summary: Get a video by ID
+ *     tags: [Videos]
+ *     parameters:
+ *       - in: path
+ *         name: videoId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The video ID
+ *     responses:
+ *       200:
+ *         description: Video details
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 video:
+ *                   $ref: '#/components/schemas/Video'
+ *       500:
+ *         description: Internal server error
+ */
+router.get("/:videoId", getVideoIdAndDownloadVideo);
+
+export default router;

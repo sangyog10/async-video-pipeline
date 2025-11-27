@@ -11,9 +11,14 @@ dotnev.config()
 
 const app = express()
 
+import swaggerUi from 'swagger-ui-express';
+import { specs } from './config/swagger.config.js';
+
 app.get("/", (req, res) => {
     res.json({ message: "API is working" })
 })
+
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs));
 app.use("/api/v1", apiRouter)
 
 
