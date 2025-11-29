@@ -9,10 +9,17 @@
 
 This project is a scalable, asynchronous video processing service built with a decoupled microservice architecture. It is designed to handle time-consuming, CPU-intensive tasks (like audio extraction and video resizing) without blocking the main API, ensuring a responsive user experience and a resilient backend.
 
-##  Architectural Overview
+## ✨ Key Features
+
+*   **⚡ High-Performance Processing**: The worker service utilizes **multi-threading** to maximize CPU usage for faster video compression and transcoding.
+*   **🌐 Web-Optimized Output**: Processed videos are automatically optimized for web playback (`moov` atom at the beginning), ensuring instant streaming start.
+*   **🖼️ HD Thumbnails**: Generates high-quality **720p thumbnails** for all uploaded videos.
+*   **🗑️ Smart Auto-Cleanup**: To ensure privacy and optimize storage, videos are **automatically deleted** from S3 15 minutes after the download link is generated.
+*   **🔄 Self-Healing Architecture**: A dedicated scheduler monitors for stalled jobs and recovers them, ensuring no request is lost.
+
+## 🏗️ Architectural Overview
 
 This system uses a decoupled microservice pattern where services communicate via a persistent job queue. This design ensures that the API (which handles user requests) is completely separate from the `worker` (which performs heavy processing).
-
 
 **The processing flow is as follows:**
 1.  **Client** sends a `multipart/form-data` request (video file, job parameters) to the **API Server**.
@@ -24,19 +31,6 @@ This system uses a decoupled microservice pattern where services communicate via
 5.  The **Worker** updates the job status to `PROCESSING`, downloads the file from MinIO, and executes the required **FFmpeg** command.
 6.  Upon completion, the **Worker** uploads the *new* processed file to MinIO and updates the job status in PostgreSQL to `COMPLETED` or `FAILED`.
 7.  A separate **Scheduler** service runs periodically, looking for jobs stuck in the `PENDING_QUEUE` state (due to a transient queue failure) and re-attempts to add them to the queue, making the system self-healing.
-
-## ✨ Core Architectural Decisions
-
-This project was built to demonstrate modern backend engineering principles:
-
-* **Decoupling:** The `api-server` (I/O-bound) is fully decoupled from the `worker` (CPU-bound). This means the API can handle thousands of requests per second, even if the worker is under heavy load.
-* **Asynchronous Processing:** By using a message queue, the API can respond instantly (`202Accepted`) while the long-running FFmpeg process (which can take minutes) executes in the background.
-* **Scalability:** The services are containerized and can be scaled independently. If the job queue gets deep, you can scale the `worker` service to 10 instances without ever touching the `api-server`.
-    * `docker compose up -d --scale worker=5`
-* **Resilience & Self-Healing:**
-    * **Job Retries:** BullMQ is configured to automatically retry failed FFmpeg jobs with an exponential backoff.
-    * **"Janitor" Service:** The `scheduler` service acts as a "janitor," solving the "dual write" problem. If the API fails to add a job to the queue *after* saving it to the database, the janitor will find it and re-queue it, ensuring eventual consistency.
-* **Stateless Services:** Both the `api-server` and `worker` are stateless. All persistent state is externalized to PostgreSQL (metadata), MinIO (file storage), and Redis (queue state), which is essential for scaling.
 
 ## 🛠️ Technology Stack
 
@@ -62,18 +56,25 @@ This project consists of 6 core services defined in `docker-compose.yml`:
 5.  **`minio`**: The S3-compatible object store.
 6.  **`redis`**: The message broker for the queue.
 
-## ⚙️ How to Run (Local Development)
+## 🚀 Deployment
 
-### Prerequisites
-* [Docker Desktop](https://www.docker.com/products/docker-desktop/) installed and running.
-* A Git client.
+### Local Development
+1.  **Clone the Repository**
+    ```bash
+    git clone https://github.com/Sangyog10/Video-Editor.git
+    cd Video-Editor
+    ```
+2.  **Start Services**
+    ```bash
+    docker-compose up --build
+    ```
+3.  **Run Migrations**
+    ```bash
+    docker exec -it api-server npm run migrate
+    ```
 
-### 1. Clone the Repository
-```sh
-git clone [https://github.com/Sangyog10/Video-Editor.git]
-cd project```
+### Production (VPS)
+For a complete guide on setting up this application on a VPS (Ubuntu/DigitalOcean/Azure) with Nginx, SSL, and Domain configuration, please refer to the **[VPS Setup Guide](./VPS_SETUP.md)**.
 
-### Run Migration
-```sh
-docker exec -it api-server npm run migrate 
-```
+## 📝 License
+This project is licensed under the ISC License.
