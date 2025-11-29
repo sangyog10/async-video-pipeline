@@ -105,6 +105,25 @@ services:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/usr/src/app
+      - /usr/src/app/node_modules
+      - /usr/src/app/dist
+    environment:
+      - VITE_API_TARGET=http://api-server:3000
+    networks:
+      - app-network
+    depends_on:
+      - api-server
+
 
 volumes:
   postgres-data:
