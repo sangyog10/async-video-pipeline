@@ -1,0 +1,1 @@
+ALTER TABLE Video ALTER COLUMN client_job_id TYPE BIGINT;

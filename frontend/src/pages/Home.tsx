@@ -15,7 +15,8 @@ const Home: React.FC = () => {
     const [polling, setPolling] = useState(false);
     const [videoStatus, setVideoStatus] = useState<string | null>(null);
     const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
-
+    const [progress, setProgress] = useState<number>(0);
+    const [queueLength, setQueueLength] = useState<number>(0);
 
 
     const pollInterval = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -38,6 +39,8 @@ const Home: React.FC = () => {
     const startPolling = (videoId: string) => {
         setPolling(true);
         setVideoStatus('PROCESSING');
+        setProgress(0);
+        setQueueLength(0);
 
         pollInterval.current = setInterval(async () => {
             try {
@@ -47,6 +50,12 @@ const Home: React.FC = () => {
                 if (data.video) {
                     const status = data.video.status;
                     setVideoStatus(status);
+                    if (data.video.progress !== undefined && data.video.progress !== null) {
+                        setProgress(data.video.progress);
+                    }
+                    if (data.video.queueLength !== undefined) {
+                        setQueueLength(data.video.queueLength);
+                    }
 
                     if (status === 'COMPLETED') {
                         setDownloadUrl(data.video.downloadUrl);
@@ -320,12 +329,28 @@ const Home: React.FC = () => {
                                                     <XCircle size={24} />
                                                     <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>Processing Failed</span>
                                                 </div>
+                                            ) : videoStatus === 'UPLOADED' ? (
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem', color: '#f59e0b', marginBottom: '1rem' }}>
+                                                    <Loader className="animate-spin" size={48} />
+                                                    <div>
+                                                        <span style={{ fontWeight: 'bold', fontSize: '1.25rem', display: 'block', marginBottom: '0.25rem' }}>In Queue</span>
+                                                        <span style={{ fontSize: '0.9rem', color: '#94a3b8' }}>Position in queue: {queueLength}</span>
+                                                    </div>
+                                                </div>
                                             ) : (
                                                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem', color: '#3b82f6', marginBottom: '1rem' }}>
                                                     <Loader className="animate-spin" size={48} />
-                                                    <div>
-                                                        <span style={{ fontWeight: 'bold', fontSize: '1.25rem', display: 'block', marginBottom: '0.25rem' }}>Processing Video...</span>
-                                                        <span style={{ fontSize: '0.9rem', color: '#94a3b8' }}>This may take a few moments depending on the file size.</span>
+                                                    <div style={{ width: '100%', maxWidth: '300px' }}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                                                            <span style={{ fontWeight: 'bold' }}>Processing...</span>
+                                                            <span style={{ fontWeight: 'bold' }}>{progress}%</span>
+                                                        </div>
+                                                        <div style={{ width: '100%', height: '8px', background: 'rgba(255,255,255,0.1)', borderRadius: '4px', overflow: 'hidden' }}>
+                                                            <div style={{ width: `${progress}%`, height: '100%', background: '#3b82f6', transition: 'width 0.3s ease' }}></div>
+                                                        </div>
+                                                        <p style={{ fontSize: '0.9rem', color: '#94a3b8', marginTop: '0.5rem', textAlign: 'center' }}>
+                                                            This may take a few moments depending on the file size.
+                                                        </p>
                                                     </div>
                                                 </div>
                                             )}

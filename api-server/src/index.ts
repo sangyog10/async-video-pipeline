@@ -37,7 +37,9 @@ const startServer = async () => {
     }
 }
 
-setInterval(retryFailedQueueAdditions, 5 * 60 * 1000); //run this job every 5 min
+setInterval(() => {
+    retryFailedQueueAdditions().catch(err => console.error("Cron job failed:", err));
+}, 5 * 60 * 1000); //run this job every 5 min
 
 
 startServer()

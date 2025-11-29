@@ -27,6 +27,8 @@ export const extractAudioFromVideo = async (req: Request, res: Response) => {
                 videoId: videoRecord.id,
                 bucket: original_bucket,
                 key: original_object_key,
+            }, {
+                jobId: `video-${videoRecord.id}`
             })
             await db.query(
                 'UPDATE Video SET status = $1 WHERE id = $2',
@@ -85,6 +87,8 @@ export const resizeVideo = async (req: Request, res: Response) => {
                 bucket: original_bucket,
                 key: original_object_key,
                 dimension
+            }, {
+                jobId: `video-${videoRecord.id}`
             })
             await db.query(
                 'UPDATE Video SET status = $1 WHERE id = $2',
@@ -140,6 +144,8 @@ export const compressVideo = async (req: Request, res: Response) => {
                 key: original_object_key,
                 compressionRate: compressionRate,
                 preset: preset || "ultrafast"
+            }, {
+                jobId: `video-${videoRecord.id}`
             })
             await db.query(
                 'UPDATE Video SET status = $1 WHERE id = $2',
@@ -193,6 +199,8 @@ export const createThumbnail = async (req: Request, res: Response) => {
                 bucket: original_bucket,
                 key: original_object_key,
                 timestamp: timestamp
+            }, {
+                jobId: `video-${videoRecord.id}`
             })
             await db.query(
                 'UPDATE Video SET status = $1 WHERE id = $2',

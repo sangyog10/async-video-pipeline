@@ -45,7 +45,10 @@ export const processVideoJob = async (job: Job) => {
         if (!compressionRate) {
           throw new Error("Compression rate is required for COMPRESS_VIDEO");
         }
-        processedFilePath = await handleVideoCompression(downloadedVideoPath, compressionRate, preset || "ultrafast");
+        processedFilePath = await handleVideoCompression(downloadedVideoPath, compressionRate, preset || "ultrafast", async (progress) => {
+          console.log(`Video ${videoId} progress: ${progress}%`);
+          await job.updateProgress(progress);
+        });
         break;
 
       case VideoEditType.CREATE_THUMBNAIL:
