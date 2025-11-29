@@ -129,3 +129,19 @@ export async function getPresignedDownloadUrl(
   const url = await getSignedUrl(presignerClient, command, { expiresIn: 3600 });
   return url;
 }
+
+export async function getPresignedUploadUrl(
+  bucketName: string,
+  key: string,
+  contentType: string
+): Promise<string> {
+  const command = new PutObjectCommand({
+    Bucket: bucketName,
+    Key: key,
+    ContentType: contentType,
+  });
+
+  // Use the presigner client for upload URLs as well
+  const url = await getSignedUrl(presignerClient, command, { expiresIn: 3600 });
+  return url;
+}

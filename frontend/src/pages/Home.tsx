@@ -83,11 +83,29 @@ const Home: React.FC = () => {
         setDownloadUrl(null);
         if (pollInterval.current) clearInterval(pollInterval.current);
 
-        const formData = new FormData();
-        formData.append('video', selectedFile);
-        formData.append('clientId', getClientId());
-
         try {
+            // Step 1: Get Presigned URL
+            const presignedResponse = await axios.post('/api/v1/videos/presigned-url', {
+                fileName: selectedFile.name,
+                fileType: selectedFile.type
+            });
+
+            const { url, key, bucket } = presignedResponse.data;
+
+            // Step 2: Upload to S3
+            await axios.put(url, selectedFile, {
+                headers: {
+                    'Content-Type': selectedFile.type
+                },
+                onUploadProgress: (progressEvent) => {
+                    if (progressEvent.total) {
+                        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                        setProgress(percentCompleted);
+                    }
+                }
+            });
+
+            // Step 3: Trigger Processing
             let endpoint = '';
 
             switch (selectedAction) {
@@ -96,36 +114,54 @@ const Home: React.FC = () => {
                     break;
                 case 'resize':
                     endpoint = '/api/v1/videos/resize';
-                    formData.append('width', width.toString());
-                    formData.append('height', height.toString());
                     break;
                 case 'compress':
                     endpoint = '/api/v1/videos/compress';
-                    formData.append('compression', compression.toString());
-                    formData.append('preset', preset);
                     break;
                 case 'create-thumbnail':
                     endpoint = '/api/v1/videos/create-thumbnail';
-                    formData.append('timestamp', timestamp.toString());
                     break;
             }
 
-            const response = await axios.post(endpoint, formData, {
+            const payload: any = {
+                clientId: getClientId(),
+                bucket,
+                key,
+                fileName: selectedFile.name
+            };
+
+            if (selectedAction === 'resize') {
+                payload.width = width;
+                payload.height = height;
+            } else if (selectedAction === 'compress') {
+                payload.compression = compression;
+                payload.preset = preset;
+            } else if (selectedAction === 'create-thumbnail') {
+                payload.timestamp = timestamp;
+            }
+
+            const processResponse = await axios.post(endpoint, payload, {
                 headers: {
-                    'Content-Type': 'multipart/form-data',
-                },
+                    'Content-Type': 'application/json'
+                }
             });
 
-            setResult(response.data);
-            if (response.data.result && response.data.result.id) {
-                startPolling(response.data.result.id);
+            setResult(processResponse.data);
+            if (processResponse.data.result && processResponse.data.result.id) {
+                startPolling(processResponse.data.result.id);
             }
         } catch (err: any) {
             console.error(err);
             setError(err.response?.data?.error || 'Something went wrong');
-        } finally {
-            setLoading(false);
+            setLoading(false); // Ensure loading is set to false on error
         }
+        // Note: setLoading(false) is NOT called in success path here because startPolling takes over?
+        // No, startPolling sets polling to true. loading should be false.
+        // In the original code, setLoading(false) was in finally block.
+        // But here, if we start polling, we might want to show "Processing..." which uses `polling` state.
+        // The UI shows "Uploading..." if `loading` is true.
+        // So we should set loading to false after upload and request is done.
+        setLoading(false);
     };
 
 

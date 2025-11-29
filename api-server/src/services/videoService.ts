@@ -49,6 +49,31 @@ export class VideoService {
     }
   }
 
+  async registerVideo(metadata: {
+    title: string;
+    clientId: string;
+    bucketName: string;
+    key: string;
+  }): Promise<Video> {
+    const { title, clientId, bucketName, key } = metadata;
+
+    const sql = `
+      INSERT INTO Video(title, client_job_id, original_bucket, original_object_key)
+      VALUES($1, $2, $3, $4)
+      RETURNING *
+    `;
+
+    const params = [title, clientId, bucketName, key];
+
+    const videoRecord = await db.queryOne<Video>(sql, params);
+
+    if (!videoRecord) {
+      throw new Error("Failed to save details to database");
+    }
+
+    return videoRecord;
+  }
+
 
   async getAllVideo(): Promise<Video[] | null> {
     const result = await db.query<Video>("SELECT * FROM Video")

@@ -1,9 +1,49 @@
 import { Router } from "express";
 import upload from "../config/multer.config.js";
 import { handleUploadErrors } from "../middlewares/multerError.js";
-import { extractAudioFromVideo, getAllVideo, getVideoIdAndDownloadVideo, resizeVideo, compressVideo, createThumbnail } from "../controller/videoController.js";
+import { extractAudioFromVideo, getAllVideo, getVideoIdAndDownloadVideo, resizeVideo, compressVideo, createThumbnail, getUploadUrl } from "../controller/videoController.js";
 
 const router = Router();
+
+/**
+ * @swagger
+ * /videos/presigned-url:
+ *   post:
+ *     summary: Get a presigned URL for uploading a file
+ *     tags: [Videos]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               fileName:
+ *                 type: string
+ *                 description: The name of the file
+ *               fileType:
+ *                 type: string
+ *                 description: The MIME type of the file
+ *     responses:
+ *       200:
+ *         description: Presigned URL generated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 url:
+ *                   type: string
+ *                 key:
+ *                   type: string
+ *                 bucket:
+ *                   type: string
+ *       400:
+ *         description: Bad request (missing fileName or fileType)
+ *       500:
+ *         description: Internal server error
+ */
+router.post("/presigned-url", getUploadUrl);
 
 /**
  * @swagger

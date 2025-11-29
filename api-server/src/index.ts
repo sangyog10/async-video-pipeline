@@ -14,6 +14,9 @@ const app = express()
 import swaggerUi from 'swagger-ui-express';
 import { specs } from './config/swagger.config.js';
 
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 app.get("/", (req, res) => {
     res.json({ message: "API is working" })
 })
