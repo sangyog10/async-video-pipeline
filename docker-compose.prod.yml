@@ -1,19 +1,12 @@
 services:
-  # Node Js service for api handling
   api-server:
     build:
       context: ./api-server
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.prod 
     container_name: api-server
-    restart: unless-stopped
+    restart: always
     ports:
       - "${PORT:-3000}:3000"
-    volumes:
-      # for development, it create live sync for my code without rebuilding
-      - ./api-server:/usr/src/app # link .(my current project) to(:) (/usr/src/app) of the container
-      # it will ignore the live sync for node_modules
-      - /usr/src/app/node_modules
-      - /usr/src/app/dist
     env_file:
       - .env
     networks:
@@ -25,18 +18,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: npm run dev
 
   worker:
     build: 
       context: ./worker
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.prod
     container_name: worker
-    restart: unless-stopped
-    volumes:
-      - ./worker:/usr/src/app
-      - /usr/src/app/node_modules
-      - /usr/src/app/dist
+    restart: always
     env_file:
       - .env
     networks:
@@ -48,14 +36,11 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: npm run dev
 
   db:
     image: postgres:16-alpine
     container_name: db
-    restart: unless-stopped
-    ports:
-      - "5432:5432"
+    restart: always
     env_file:
       - .env
     volumes:
@@ -71,7 +56,7 @@ services:
   minio:
     image: minio/minio:latest
     container_name: minio
-    restart: unless-stopped
+    restart: always
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -92,11 +77,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: redis
-    restart: unless-stopped
-    # expose:
-    #   - "6379"
-    ports:
-      - "6379:6379"
+    restart: always
     networks:
       - app-network
     volumes:
@@ -108,22 +89,15 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.prod
     container_name: frontend
-    restart: unless-stopped
+    restart: always
     ports:
-      - "5173:5173"
-    volumes:
-      - ./frontend:/usr/src/app
-      - /usr/src/app/node_modules
-      - /usr/src/app/dist
-    environment:
-      - VITE_API_TARGET=http://api-server:3000
+      - "5173:80"
     networks:
       - app-network
     depends_on:
       - api-server
-
 
 volumes:
   postgres-data:
@@ -136,4 +110,3 @@ volumes:
 networks:
   app-network:
     driver: bridge
-
