@@ -4,7 +4,7 @@ services:
     build:
       context: ./api-server
       dockerfile: Dockerfile
-    container_name: api-server
+    container_name: api-server-prod
     restart: unless-stopped
     ports:
       - "${PORT:-3000}:3000"
@@ -31,7 +31,7 @@ services:
     build: 
       context: ./worker
       dockerfile: Dockerfile
-    container_name: worker
+    container_name: worker-prod
     restart: unless-stopped
     volumes:
       - ./worker:/usr/src/app
@@ -52,7 +52,7 @@ services:
 
   db:
     image: postgres:16-alpine
-    container_name: db
+    container_name: db-prod
     restart: unless-stopped
     ports:
       - "5432:5432"
@@ -70,7 +70,7 @@ services:
 
   minio:
     image: minio/minio:latest
-    container_name: minio
+    container_name: minio-prod
     restart: unless-stopped
     ports:
       - "9000:9000"
@@ -91,7 +91,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: redis
+    container_name: redis-prod
     restart: unless-stopped
     # expose:
     #   - "6379"
@@ -109,7 +109,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: frontend
+    container_name: frontend-prod
     restart: unless-stopped
     ports:
       - "5173:5173"
