@@ -11,9 +11,17 @@ dotnev.config()
 
 const app = express()
 
+import swaggerUi from 'swagger-ui-express';
+import { specs } from './config/swagger.config.js';
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 app.get("/", (req, res) => {
     res.json({ message: "API is working" })
 })
+
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(specs));
 app.use("/api/v1", apiRouter)
 
 
@@ -32,7 +40,9 @@ const startServer = async () => {
     }
 }
 
-setInterval(retryFailedQueueAdditions, 5 * 60 * 1000); //run this job every 5 min
+setInterval(() => {
+    retryFailedQueueAdditions().catch(err => console.error("Cron job failed:", err));
+}, 5 * 60 * 1000); //run this job every 5 min
 
 
 startServer()

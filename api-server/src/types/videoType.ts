@@ -9,6 +9,7 @@ export interface Video {
   status?: JobStatus;
   processed_object_key?: string | null;
   processed_bucket?: string | null;
+  progress?: number;
 }
 
 
@@ -27,6 +28,6 @@ export enum JobStatus {
   PROCESSING = "PROCESSING",
   COMPLETED = "COMPLETED",
   FAILED = "FAILED",
-  QUEUE_FAILED="QUEUE_FAILED"
+  QUEUE_FAILED = "QUEUE_FAILED"
 }
 

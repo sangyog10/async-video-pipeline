@@ -4,14 +4,14 @@ import { Video } from "./types/videoType.js";
 
 export async function retryFailedQueueAdditions() {
   const failedVideos = await db.query<Video>(
-    "SELECT * FROM video WHERE status = 'QUEUE_FAILED' AND created_at > NOW() - INTERVAL '24 hours'"
+    "SELECT * FROM Video WHERE status = 'QUEUE_FAILED' AND created_at > NOW() - INTERVAL '24 hours'"
   );
 
   for (const video of failedVideos) {
     try {
       await videoProcessingQueue.add("Video-queue", video.id);
       await db.query(
-        'UPDATE video SET status = $1 WHERE id = $2',
+        'UPDATE Video SET status = $1 WHERE id = $2',
         ['UPLOADED', video.id]
       );
     } catch (error) {

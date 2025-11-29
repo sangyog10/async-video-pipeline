@@ -4,22 +4,63 @@ import { JobStatus, VideoEditType } from "../types/videoType.js";
 import { videoProcessingQueue } from "../config/queue.config.js";
 import db from "../db/database.js";
 
+import { getPresignedUploadUrl } from "../config/aws.config.js";
+import { VideoBucket } from "../types/bucketName.js";
+
 const videoService = new VideoService();
 
-export const extractAudioFromVideo = async (req: Request, res: Response) => {
-    if (!req.file) {
-        return res.status(400).json({ error: 'No file uploaded' });
-    }
-
+export const getUploadUrl = async (req: Request, res: Response) => {
     try {
-        const { clientId } = req.body;
+        const { fileName, fileType } = req.body;
+        if (!fileName || !fileType) {
+            return res.status(400).json({ error: 'fileName and fileType are required' });
+        }
+
+        const key = `${Date.now()}-${fileName}`;
+        const bucketName = VideoBucket;
+
+        const url = await getPresignedUploadUrl(bucketName, key, fileType);
+
+        return res.status(200).json({
+            url,
+            key,
+            bucket: bucketName
+        });
+    } catch (error) {
+        console.error("Failed to generate upload URL:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+export const extractAudioFromVideo = async (req: Request, res: Response) => {
+    try {
+        const { clientId, bucket, key, fileName } = req.body;
 
         if (!clientId) {
             return res.status(400).json({ error: 'Client ID is required' });
         }
 
-        const videoRecord = await videoService.uploadVideo(req.file, clientId);
-        console.log("Video uploaded successfully");
+        let videoRecord;
+
+        if (bucket && key) {
+            // Pre-uploaded file flow
+            if (!fileName) {
+                return res.status(400).json({ error: 'fileName is required for pre-uploaded files' });
+            }
+            videoRecord = await videoService.registerVideo({
+                title: fileName,
+                clientId,
+                bucketName: bucket,
+                key
+            });
+            console.log("Video registered successfully (pre-uploaded)");
+        } else if (req.file) {
+            // Legacy upload flow
+            videoRecord = await videoService.uploadVideo(req.file, clientId);
+            console.log("Video uploaded successfully");
+        } else {
+            return res.status(400).json({ error: 'No file uploaded or bucket/key provided' });
+        }
 
         const { original_bucket, original_object_key } = videoRecord;
         try {
@@ -27,6 +68,8 @@ export const extractAudioFromVideo = async (req: Request, res: Response) => {
                 videoId: videoRecord.id,
                 bucket: original_bucket,
                 key: original_object_key,
+            }, {
+                jobId: `video-${videoRecord.id}`
             })
             await db.query(
                 'UPDATE Video SET status = $1 WHERE id = $2',
@@ -55,12 +98,8 @@ export const extractAudioFromVideo = async (req: Request, res: Response) => {
 };
 
 export const resizeVideo = async (req: Request, res: Response) => {
-    if (!req.file) {
-        return res.status(400).json({ error: 'No file uploaded' });
-    }
-
     try {
-        const { clientId, height, width } = req.body;
+        const { clientId, height, width, bucket, key, fileName } = req.body;
 
         if (!clientId) {
             return res.status(400).json({ error: 'Client ID is required' });
@@ -75,8 +114,29 @@ export const resizeVideo = async (req: Request, res: Response) => {
             width: width
         }
 
-        const videoRecord = await videoService.uploadVideo(req.file, clientId);
-        console.log("Video uploaded successfully");
+        let videoRecord;
+
+        if (bucket && key) {
+            // Pre-uploaded file flow
+            if (!fileName) {
+                return res.status(400).json({ error: 'fileName is required for pre-uploaded files' });
+            }
+            videoRecord = await videoService.registerVideo({
+                title: fileName,
+                clientId,
+                bucketName: bucket,
+                key
+            });
+            console.log("Video registered successfully (pre-uploaded)");
+        }
+        else if (req.file) {
+            // Legacy upload flow
+            videoRecord = await videoService.uploadVideo(req.file, clientId);
+            console.log("Video uploaded successfully");
+        }
+        else {
+            return res.status(400).json({ error: 'No file uploaded or bucket/key provided' });
+        }
 
         const { original_bucket, original_object_key } = videoRecord;
         try {
@@ -85,6 +145,8 @@ export const resizeVideo = async (req: Request, res: Response) => {
                 bucket: original_bucket,
                 key: original_object_key,
                 dimension
+            }, {
+                jobId: `video-${videoRecord.id}`
             })
             await db.query(
                 'UPDATE Video SET status = $1 WHERE id = $2',
@@ -112,25 +174,40 @@ export const resizeVideo = async (req: Request, res: Response) => {
 };
 
 export const compressVideo = async (req: Request, res: Response) => {
-    if (!req.file) {
-        return res.status(400).json({ error: 'No file uploaded' });
-    }
-
     try {
         let compressionRate: number;
-        const { clientId, compression } = req.body;
+        const { clientId, compression, preset, bucket, key, fileName } = req.body;
 
         if (!clientId) {
             return res.status(400).json({ error: 'Client ID is required' });
         }
         if (!compression) {
-            compressionRate= 28; // balanced ratio, medium quality and size
+            compressionRate = 28; // balanced ratio, medium quality and size
         } else {
             compressionRate = Number(compression);
         }
 
-        const videoRecord = await videoService.uploadVideo(req.file, clientId);
-        console.log("Video uploaded successfully for compression");
+        let videoRecord;
+
+        if (bucket && key) {
+            // Pre-uploaded file flow
+            if (!fileName) {
+                return res.status(400).json({ error: 'fileName is required for pre-uploaded files' });
+            }
+            videoRecord = await videoService.registerVideo({
+                title: fileName,
+                clientId,
+                bucketName: bucket,
+                key
+            });
+            console.log("Video registered successfully (pre-uploaded)");
+        } else if (req.file) {
+            // Legacy upload flow
+            videoRecord = await videoService.uploadVideo(req.file, clientId);
+            console.log("Video uploaded successfully for compression");
+        } else {
+            return res.status(400).json({ error: 'No file uploaded or bucket/key provided' });
+        }
 
         const { original_bucket, original_object_key } = videoRecord;
         try {
@@ -138,7 +215,10 @@ export const compressVideo = async (req: Request, res: Response) => {
                 videoId: videoRecord.id,
                 bucket: original_bucket,
                 key: original_object_key,
-                compressionRate: compressionRate
+                compressionRate: compressionRate,
+                preset: preset || "ultrafast"
+            }, {
+                jobId: `video-${videoRecord.id}`
             })
             await db.query(
                 'UPDATE Video SET status = $1 WHERE id = $2',
@@ -167,23 +247,38 @@ export const compressVideo = async (req: Request, res: Response) => {
 };
 
 export const createThumbnail = async (req: Request, res: Response) => {
-    if (!req.file) {
-        return res.status(400).json({ error: 'No file uploaded' });
-    }
-
     try {
-        const { clientId ,timestamp} = req.body;
+        const { clientId, timestamp, bucket, key, fileName } = req.body;
 
         if (!clientId) {
             return res.status(400).json({ error: 'Client ID is required' });
         }
 
-        if(!timestamp){
+        if (!timestamp) {
             return res.status(400).json({ error: 'Please provide thumbnail time in seconds' });
         }
 
-        const videoRecord = await videoService.uploadVideo(req.file, clientId);
-        console.log("Video uploaded successfully for thumbnail creation");
+        let videoRecord;
+
+        if (bucket && key) {
+            // Pre-uploaded file flow
+            if (!fileName) {
+                return res.status(400).json({ error: 'fileName is required for pre-uploaded files' });
+            }
+            videoRecord = await videoService.registerVideo({
+                title: fileName,
+                clientId,
+                bucketName: bucket,
+                key
+            });
+            console.log("Video registered successfully (pre-uploaded)");
+        } else if (req.file) {
+            // Legacy upload flow
+            videoRecord = await videoService.uploadVideo(req.file, clientId);
+            console.log("Video uploaded successfully for thumbnail creation");
+        } else {
+            return res.status(400).json({ error: 'No file uploaded or bucket/key provided' });
+        }
 
         const { original_bucket, original_object_key } = videoRecord;
         try {
@@ -192,6 +287,8 @@ export const createThumbnail = async (req: Request, res: Response) => {
                 bucket: original_bucket,
                 key: original_object_key,
                 timestamp: timestamp
+            }, {
+                jobId: `video-${videoRecord.id}`
             })
             await db.query(
                 'UPDATE Video SET status = $1 WHERE id = $2',
@@ -217,7 +314,7 @@ export const createThumbnail = async (req: Request, res: Response) => {
         console.error("Upload failed:", error);
         return res.status(500).json({ message: "Internal server error" });
     }
- };
+};
 
 export const getAllVideo = async (req: Request, res: Response) => {
     try {

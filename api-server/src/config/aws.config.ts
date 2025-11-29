@@ -5,7 +5,17 @@ import { join } from 'path';
 
 
 const s3Client = new S3Client({
-  endpoint: 'http://minio:9000',
+  endpoint: process.env.S3_ENDPOINT || 'http://minio:9000',
+  region: 'us-east-1',
+  credentials: {
+    accessKeyId: process.env.MINIO_ROOT_USER!,
+    secretAccessKey: process.env.MINIO_ROOT_PASSWORD!,
+  },
+  forcePathStyle: true //for minio
+});
+
+const presignerClient = new S3Client({
+  endpoint: process.env.S3_PUBLIC_ENDPOINT || 'http://localhost:9000',
   region: 'us-east-1',
   credentials: {
     accessKeyId: process.env.MINIO_ROOT_USER!,
@@ -115,6 +125,23 @@ export async function getPresignedDownloadUrl(
   });
 
   // Generate a URL valid for 1 hour (3600 seconds)
-  const url = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
+  // Use the presigner client which is configured with the public endpoint
+  const url = await getSignedUrl(presignerClient, command, { expiresIn: 3600 });
+  return url;
+}
+
+export async function getPresignedUploadUrl(
+  bucketName: string,
+  key: string,
+  contentType: string
+): Promise<string> {
+  const command = new PutObjectCommand({
+    Bucket: bucketName,
+    Key: key,
+    ContentType: contentType,
+  });
+
+  // Use the presigner client for upload URLs as well
+  const url = await getSignedUrl(presignerClient, command, { expiresIn: 3600 });
   return url;
 }

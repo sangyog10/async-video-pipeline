@@ -2,6 +2,7 @@ import db from "../db/database.js"
 import { deleteVideoFromAws, getPresignedDownloadUrl, uploadVideoToAws } from "../config/aws.config.js"
 import { VideoBucket } from "../types/bucketName.js";
 import { JobStatus, Video } from "../types/videoType.js";
+import { videoProcessingQueue } from "../config/queue.config.js";
 
 
 export class VideoService {
@@ -26,7 +27,7 @@ export class VideoService {
 
       //upload video info to database
       const sql = `
-      INSERT INTO video(title, client_job_id, original_bucket, original_object_key)
+      INSERT INTO Video(title, client_job_id, original_bucket, original_object_key)
       VALUES($1, $2, $3, $4)
       RETURNING *
     `;
@@ -48,9 +49,34 @@ export class VideoService {
     }
   }
 
+  async registerVideo(metadata: {
+    title: string;
+    clientId: string;
+    bucketName: string;
+    key: string;
+  }): Promise<Video> {
+    const { title, clientId, bucketName, key } = metadata;
+
+    const sql = `
+      INSERT INTO Video(title, client_job_id, original_bucket, original_object_key)
+      VALUES($1, $2, $3, $4)
+      RETURNING *
+    `;
+
+    const params = [title, clientId, bucketName, key];
+
+    const videoRecord = await db.queryOne<Video>(sql, params);
+
+    if (!videoRecord) {
+      throw new Error("Failed to save details to database");
+    }
+
+    return videoRecord;
+  }
+
 
   async getAllVideo(): Promise<Video[] | null> {
-    const result = await db.query<Video>("SELECT * FROM video")
+    const result = await db.query<Video>("SELECT * FROM Video")
     if (!result) {
       throw new Error("Failed to fetch result")
     }
@@ -59,23 +85,28 @@ export class VideoService {
 
 
   async getVideoByIdAndDownloadVideo(videoId: string): Promise<any> {
-    const videoRecord = await db.queryOne<Video>("SELECT * FROM video WHERE id = $1", [videoId]);
+    const videoRecord = await db.queryOne<Video>("SELECT * FROM Video WHERE id = $1", [videoId]);
 
     if (!videoRecord) {
       throw new Error("Video not found");
     }
 
     if (videoRecord.status === JobStatus.UPLOADED) {
+      const queueLength = await videoProcessingQueue.getWaitingCount();
       return {
         status: videoRecord.status,
-        message: "Video is uploaded and queued for processing"
+        message: "Video is uploaded and queued for processing",
+        queueLength: queueLength
       };
     }
 
     if (videoRecord.status === JobStatus.PROCESSING) {
+      const job = await videoProcessingQueue.getJob(`video-${videoId}`);
+      const progress = job ? job.progress : 0;
       return {
         status: videoRecord.status,
-        message: "Video is being processed. Please wait some time."
+        message: "Video is being processed. Please wait some time.",
+        progress: progress
       };
     }
 

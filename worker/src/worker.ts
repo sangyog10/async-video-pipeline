@@ -8,13 +8,13 @@ import { VideoQueueName } from './types/video.type.js'
 dotnev.config()
 
 
-const worker = new Worker(VideoQueueName, processVideoJob, {connection:redisConnection});
+const worker = new Worker(VideoQueueName, processVideoJob, { connection: redisConnection });
 
-worker.on('completed',(job:Job)=>{
+worker.on('completed', (job: Job) => {
     console.log(`Job with Id:${job.id} completed successfully`)
 })
 
-worker.on("failed", ()=>{
+worker.on("failed", () => {
     console.log(`Error in processing the job`)
 })
 
