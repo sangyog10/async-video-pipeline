@@ -18,7 +18,7 @@ export const createThumbnail = (
       "-ss", timestamp.toString(), // timeframe to the specified timestamp
       "-i", originalVideoPath,
       "-vframes", "1", // capture only one frame
-      "-vf", "scale=320:-1", // scale width to 320px, height automatic
+      "-vf", "scale=1280:-1", // scale width to 1280px (720p), height automatic
       "-q:v", "2",
       "-y", targetThumbnailPath,
     ]);

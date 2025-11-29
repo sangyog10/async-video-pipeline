@@ -19,9 +19,10 @@ export const compressVideo = (
       "-i", originalVideoPath,
       "-vcodec", "libx264", // Use H.264 codec for video compression
       "-preset", preset, // Preset for encoding speed 
-      "-threads", "4", // Use 4 threads for processing
+      "-threads", "0", // Use all available threads
       "-crf", compressionRate.toString(), // Set the CRF value for compression
       "-c:a", "copy", //copy the audio as it is
+      "-movflags", "+faststart", // Optimize for web playback
       "-y", targetVideoPath,
     ]);
 
