@@ -20,7 +20,8 @@ export enum VideoEditType {
   EXTRACT_AUDIO = "extract-audio",
   RESIZE_VIDEO = "resize",
   COMPRESS_VIDEO = "compress",
-  CREATE_THUMBNAIL = "create-thumbnail"
+  CREATE_THUMBNAIL = "create-thumbnail",
+  DELETE_VIDEO = "delete-video"
 }
 
 export enum JobStatus {
@@ -28,6 +29,7 @@ export enum JobStatus {
   PROCESSING = "PROCESSING",
   COMPLETED = "COMPLETED",
   FAILED = "FAILED",
-  QUEUE_FAILED = "QUEUE_FAILED"
+  QUEUE_FAILED = "QUEUE_FAILED",
+  DELETED = "DELETED"
 }
 

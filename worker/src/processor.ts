@@ -2,7 +2,7 @@ import { Job } from "bullmq";
 import fs from 'fs'
 import db from "./db/database.js";
 import path from "path";
-import { downloadVideoFromAws, uploadFileFromLocal } from "./config/aws.config.js";
+import { downloadVideoFromAws, uploadFileFromLocal, deleteVideoFromAws } from "./config/aws.config.js";
 import { handleAudioExtraction, handleThumbnailCreation, handleVideoCompression, handleVideoResize } from "./controller/index.js";
 import { VideoEditType } from './types/video.type.js'
 import { JobStatus } from "./types/video.type.js";
@@ -58,6 +58,24 @@ export const processVideoJob = async (job: Job) => {
         }
         processedFilePath = await handleThumbnailCreation(downloadedVideoPath, timestamp);
         break;
+
+      case VideoEditType.DELETE_VIDEO:
+        const { processedBucket, processedKey } = job.data;
+
+        // Delete original file
+        if (bucket && key) {
+          await deleteVideoFromAws(bucket, key);
+        }
+
+        // Delete processed file
+        if (processedBucket && processedKey) {
+          await deleteVideoFromAws(processedBucket, processedKey);
+        }
+
+        // Update status to DELETED
+        await db.query("UPDATE Video SET status = $1 WHERE id = $2", [JobStatus.DELETED, videoId]);
+        console.log(`Successfully deleted video ${videoId} from S3 and updated status.`);
+        return; // Exit early as there is no "processed file" to upload back
 
       default:
         console.log("Unspecified job name:", job.name);
