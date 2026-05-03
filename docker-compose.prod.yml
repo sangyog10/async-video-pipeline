@@ -3,7 +3,7 @@ services:
     build:
       context: ./api-server
       dockerfile: Dockerfile.prod 
-    container_name: api-server
+    container_name: api-server:latest
     restart: always
     ports:
       - "${PORT:-3000}:3000"
@@ -23,7 +23,7 @@ services:
     build: 
       context: ./worker
       dockerfile: Dockerfile.prod
-    container_name: worker
+    container_name: worker:latest
     restart: always
     env_file:
       - .env
@@ -90,7 +90,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.prod
-    container_name: frontend
+    container_name: frontend:latest
     restart: always
     ports:
       - "5173:80"
