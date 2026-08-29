@@ -407,6 +407,85 @@ export const createGif = async (req: Request, res: Response) => {
     }
 };
 
+const VALID_WATERMARK_POSITIONS = ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'center'];
+
+export const addWatermark = async (req: Request, res: Response) => {
+    try {
+        const { clientId, position, opacity, watermarkWidth, bucket, key, fileName, watermarkBucket, watermarkKey } = req.body;
+
+        if (!clientId) {
+            return res.status(400).json({ error: 'Client ID is required' });
+        }
+
+        if (!watermarkBucket || !watermarkKey) {
+            return res.status(400).json({ error: 'watermarkBucket and watermarkKey are required (upload the watermark image first)' });
+        }
+
+        const pos = position || 'bottom-right';
+        if (!VALID_WATERMARK_POSITIONS.includes(pos)) {
+            return res.status(400).json({ error: `position must be one of: ${VALID_WATERMARK_POSITIONS.join(', ')}` });
+        }
+
+        const opacityValue = opacity === undefined ? 1 : Number(opacity);
+        if (!Number.isFinite(opacityValue) || opacityValue < 0 || opacityValue > 1) {
+            return res.status(400).json({ error: 'opacity must be a number between 0 and 1' });
+        }
+
+        const widthValue = watermarkWidth === undefined ? undefined : Number(watermarkWidth);
+        if (widthValue !== undefined && (!Number.isFinite(widthValue) || widthValue <= 0 || widthValue > 1920)) {
+            return res.status(400).json({ error: 'watermarkWidth must be a number between 1 and 1920' });
+        }
+
+        let videoRecord;
+
+        if (bucket && key) {
+            // Pre-uploaded file flow
+            if (!fileName) {
+                return res.status(400).json({ error: 'fileName is required for pre-uploaded files' });
+            }
+            videoRecord = await videoService.registerVideo({
+                title: fileName,
+                clientId,
+                bucketName: bucket,
+                key
+            });
+            console.log("Video registered successfully (pre-uploaded)");
+        } else if (req.file) {
+            // Legacy upload flow
+            videoRecord = await videoService.uploadVideo(req.file, clientId);
+            console.log("Video uploaded successfully for watermarking");
+        } else {
+            return res.status(400).json({ error: 'No file uploaded or bucket/key provided' });
+        }
+
+        const { original_bucket, original_object_key } = videoRecord;
+        await videoService.enqueueVideoJob(
+            videoRecord,
+            VideoEditType.ADD_WATERMARK,
+            {
+                videoId: videoRecord.id,
+                bucket: original_bucket,
+                key: original_object_key,
+                watermarkBucket,
+                watermarkKey,
+                position: pos,
+                opacity: opacityValue,
+                watermarkWidth: widthValue,
+            }
+        );
+        console.log("Video added to the queue and updated the status");
+
+        res.status(202).json({
+            message: 'Video uploaded and being processed, please come back later!',
+            result: videoRecord
+        });
+
+    } catch (error) {
+        console.error("Upload failed:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
 export const getAllVideo = async (req: Request, res: Response) => {    try {
         const videos = await videoService.getAllVideo();
         return res.status(200).json({

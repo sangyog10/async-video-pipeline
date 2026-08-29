@@ -7,6 +7,7 @@ export enum VideoEditType {
   CREATE_THUMBNAIL = "create-thumbnail",
   TRIM_VIDEO = "trim",
   CREATE_GIF = "create-gif",
+  ADD_WATERMARK = "add-watermark",
   DELETE_VIDEO = "delete-video"
 }
 

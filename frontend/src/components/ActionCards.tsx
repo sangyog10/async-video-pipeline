@@ -1,5 +1,5 @@
 import React from 'react';
-import { Music, Maximize, Minimize, Image, Scissors, Film } from 'lucide-react';
+import { Music, Maximize, Minimize, Image, Scissors, Film, Stamp } from 'lucide-react';
 
 interface ActionCardsProps {
     onSelectAction: (action: string) => void;
@@ -43,6 +43,12 @@ const ActionCards: React.FC<ActionCardsProps> = ({ onSelectAction, selectedActio
             title: 'Create GIF',
             description: 'Convert video to an animated GIF',
             icon: Film
+        },
+        {
+            id: 'add-watermark',
+            title: 'Add Watermark',
+            description: 'Overlay an image onto your video',
+            icon: Stamp
         }
     ];
 

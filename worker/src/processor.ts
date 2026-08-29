@@ -3,7 +3,7 @@ import fs from 'fs'
 import db from "./db/database.js";
 import path from "path";
 import { downloadVideoFromAws, uploadFileFromLocal, deleteVideoFromAws } from "./config/aws.config.js";
-import { handleAudioExtraction, handleThumbnailCreation, handleVideoCompression, handleVideoResize, handleVideoTrim, handleGifCreation } from "./controller/index.js";
+import { handleAudioExtraction, handleThumbnailCreation, handleVideoCompression, handleVideoResize, handleVideoTrim, handleGifCreation, handleAddWatermark } from "./controller/index.js";
 import { videoProcessingQueue } from "./config/queue.config.js";
 import { VideoEditType } from './types/video.type.js'
 import { JobStatus } from "./types/video.type.js";
@@ -15,6 +15,7 @@ export const processVideoJob = async (job: Job) => {
   const { videoId, bucket, key } = job.data;
 
   let downloadedVideoPath: string | null = null;
+  let watermarkDownloadedPath: string | null = null;
   let processedFilePath: string = "";
 
   try {
@@ -87,8 +88,24 @@ export const processVideoJob = async (job: Job) => {
         });
         break;
 
+      case VideoEditType.ADD_WATERMARK:
+        const { watermarkBucket, watermarkKey, position, opacity, watermarkWidth } = job.data;
+        if (!watermarkBucket || !watermarkKey) {
+          throw new Error("watermarkBucket and watermarkKey are required for ADD_WATERMARK");
+        }
+        watermarkDownloadedPath = await downloadVideoFromAws(watermarkBucket, watermarkKey, downloadedFileStoringFolder);
+        processedFilePath = await handleAddWatermark(downloadedVideoPath, watermarkDownloadedPath, {
+          position,
+          opacity: opacity ?? 1,
+          width: watermarkWidth,
+        }, async (progress) => {
+          console.log(`Video ${videoId} progress: ${progress}%`);
+          await job.updateProgress(progress);
+        });
+        break;
+
       case VideoEditType.DELETE_VIDEO:
-        const { processedBucket, processedKey } = job.data;
+        const { processedBucket, processedKey, watermarkBucket: wmBucket, watermarkKey: wmKey } = job.data;
 
         // Delete original file
         if (bucket && key) {
@@ -98,6 +115,11 @@ export const processVideoJob = async (job: Job) => {
         // Delete processed file
         if (processedBucket && processedKey) {
           await deleteVideoFromAws(processedBucket, processedKey);
+        }
+
+        // Delete watermark image if one was used
+        if (wmBucket && wmKey) {
+          await deleteVideoFromAws(wmBucket, wmKey);
         }
 
         // Update status to DELETED
@@ -134,6 +156,9 @@ export const processVideoJob = async (job: Job) => {
         key,
         processedBucket: processedBucketName,
         processedKey,
+        ...(job.data.watermarkBucket && job.data.watermarkKey
+          ? { watermarkBucket: job.data.watermarkBucket, watermarkKey: job.data.watermarkKey }
+          : {}),
       }, {
         jobId: `delete-${videoId}`,
         delay: 15 * 60 * 1000, // 15 minutes
@@ -160,6 +185,14 @@ export const processVideoJob = async (job: Job) => {
       cleanupPromises.push(
         fs.promises.rm(downloadedVideoPath).catch(err => {
           if (err.code !== 'ENOENT') console.error(`Failed to delete ${downloadedVideoPath}:`, err);
+        })
+      );
+    }
+
+    if (watermarkDownloadedPath) {
+      cleanupPromises.push(
+        fs.promises.rm(watermarkDownloadedPath).catch(err => {
+          if (err.code !== 'ENOENT') console.error(`Failed to delete ${watermarkDownloadedPath}:`, err);
         })
       );
     }
