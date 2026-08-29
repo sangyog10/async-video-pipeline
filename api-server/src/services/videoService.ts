@@ -74,6 +74,38 @@ export class VideoService {
     return videoRecord;
   }
 
+  /**
+   * Persist job metadata, enqueue the job, and update the status accordingly.
+   * If enqueueing fails, the video is marked QUEUE_FAILED and the stored
+   * metadata lets the scheduler re-attempt the enqueue later.
+   */
+  async enqueueVideoJob(
+    video: Video,
+    type: VideoEditType,
+    data: Record<string, unknown>
+  ): Promise<void> {
+    const params = JSON.stringify(data);
+
+    await db.query(
+      "UPDATE Video SET job_type = $1, job_params = $2 WHERE id = $3",
+      [type, params, video.id]
+    );
+
+    try {
+      await videoProcessingQueue.add(type, data, { jobId: `video-${video.id}` });
+      await db.query(
+        "UPDATE Video SET status = $1 WHERE id = $2",
+        [JobStatus.UPLOADED, video.id]
+      );
+    } catch (error) {
+      await db.query(
+        "UPDATE Video SET status = $1 WHERE id = $2",
+        [JobStatus.QUEUE_FAILED, video.id]
+      );
+      throw error;
+    }
+  }
+
 
   async getAllVideo(): Promise<Video[] | null> {
     const result = await db.query<Video>("SELECT * FROM Video")

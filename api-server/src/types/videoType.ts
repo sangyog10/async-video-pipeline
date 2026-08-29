@@ -10,6 +10,8 @@ export interface Video {
   processed_object_key?: string | null;
   processed_bucket?: string | null;
   progress?: number;
+  job_type?: string | null;
+  job_params?: Record<string, unknown> | null;
 }
 
 

@@ -8,8 +8,15 @@ export async function retryFailedQueueAdditions() {
   );
 
   for (const video of failedVideos) {
+    if (!video.job_type || !video.job_params) {
+      console.error(`Video ${video.id} is QUEUE_FAILED but missing job metadata; skipping`);
+      continue;
+    }
+
     try {
-      await videoProcessingQueue.add("Video-queue", video.id);
+      await videoProcessingQueue.add(video.job_type, video.job_params, {
+        jobId: `video-${video.id}`,
+      });
       await db.query(
         'UPDATE Video SET status = $1 WHERE id = $2',
         ['UPLOADED', video.id]

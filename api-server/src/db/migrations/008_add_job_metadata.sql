@@ -1,0 +1,3 @@
+ALTER TABLE Video
+ADD COLUMN job_type VARCHAR(50),
+ADD COLUMN job_params JSONB;

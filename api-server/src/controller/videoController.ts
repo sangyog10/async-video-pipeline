@@ -1,8 +1,6 @@
 import type { Request, Response } from "express";
 import { VideoService } from "../services/videoService.js";
-import { JobStatus, VideoEditType } from "../types/videoType.js";
-import { videoProcessingQueue } from "../config/queue.config.js";
-import db from "../db/database.js";
+import { VideoEditType } from "../types/videoType.js";
 
 import { getPresignedUploadUrl } from "../config/aws.config.js";
 import { VideoBucket } from "../types/bucketName.js";
@@ -63,28 +61,16 @@ export const extractAudioFromVideo = async (req: Request, res: Response) => {
         }
 
         const { original_bucket, original_object_key } = videoRecord;
-        try {
-            await videoProcessingQueue.add(VideoEditType.EXTRACT_AUDIO, {
+        await videoService.enqueueVideoJob(
+            videoRecord,
+            VideoEditType.EXTRACT_AUDIO,
+            {
                 videoId: videoRecord.id,
                 bucket: original_bucket,
                 key: original_object_key,
-            }, {
-                jobId: `video-${videoRecord.id}`
-            })
-            await db.query(
-                'UPDATE Video SET status = $1 WHERE id = $2',
-                [JobStatus.UPLOADED, videoRecord.id]
-            );
-            console.log("Video added to the queue and updated the status")
-
-        } catch (queueError) {
-            console.error("Failed to add to queue:", queueError);
-            await db.query(
-                'UPDATE Video SET status = $1  WHERE id = $2',
-                [JobStatus.QUEUE_FAILED, videoRecord.id]
-            );
-            throw queueError
-        }
+            }
+        );
+        console.log("Video added to the queue and updated the status");
 
         res.status(202).json({
             message: 'Video uploaded and being processed, please come back later!',
@@ -139,29 +125,17 @@ export const resizeVideo = async (req: Request, res: Response) => {
         }
 
         const { original_bucket, original_object_key } = videoRecord;
-        try {
-            await videoProcessingQueue.add(VideoEditType.RESIZE_VIDEO, {
+        await videoService.enqueueVideoJob(
+            videoRecord,
+            VideoEditType.RESIZE_VIDEO,
+            {
                 videoId: videoRecord.id,
                 bucket: original_bucket,
                 key: original_object_key,
-                dimension
-            }, {
-                jobId: `video-${videoRecord.id}`
-            })
-            await db.query(
-                'UPDATE Video SET status = $1 WHERE id = $2',
-                [JobStatus.UPLOADED, videoRecord.id]
-            );
-            console.log("Video added to the queue and updated the status")
-
-        } catch (queueError) {
-            console.error("Failed to add to queue:", queueError);
-            await db.query(
-                'UPDATE Video SET status = $1  WHERE id = $2',
-                [JobStatus.QUEUE_FAILED, videoRecord.id]
-            );
-            return videoRecord
-        }
+                dimension,
+            }
+        );
+        console.log("Video added to the queue and updated the status");
 
         res.status(202).json({
             message: 'Video uploaded and being processed, please come back later!',
@@ -210,30 +184,18 @@ export const compressVideo = async (req: Request, res: Response) => {
         }
 
         const { original_bucket, original_object_key } = videoRecord;
-        try {
-            await videoProcessingQueue.add(VideoEditType.COMPRESS_VIDEO, {
+        await videoService.enqueueVideoJob(
+            videoRecord,
+            VideoEditType.COMPRESS_VIDEO,
+            {
                 videoId: videoRecord.id,
                 bucket: original_bucket,
                 key: original_object_key,
                 compressionRate: compressionRate,
-                preset: preset || "ultrafast"
-            }, {
-                jobId: `video-${videoRecord.id}`
-            })
-            await db.query(
-                'UPDATE Video SET status = $1 WHERE id = $2',
-                [JobStatus.UPLOADED, videoRecord.id]
-            );
-            console.log("Video added to the queue and updated the status")
-
-        } catch (queueError) {
-            console.error("Failed to add to queue:", queueError);
-            await db.query(
-                'UPDATE Video SET status = $1  WHERE id = $2',
-                [JobStatus.QUEUE_FAILED, videoRecord.id]
-            );
-            throw queueError
-        }
+                preset: preset || "ultrafast",
+            }
+        );
+        console.log("Video added to the queue and updated the status");
 
         res.status(202).json({
             message: 'Video uploaded and being processed, please come back later!',
@@ -281,29 +243,17 @@ export const createThumbnail = async (req: Request, res: Response) => {
         }
 
         const { original_bucket, original_object_key } = videoRecord;
-        try {
-            await videoProcessingQueue.add(VideoEditType.CREATE_THUMBNAIL, {
+        await videoService.enqueueVideoJob(
+            videoRecord,
+            VideoEditType.CREATE_THUMBNAIL,
+            {
                 videoId: videoRecord.id,
                 bucket: original_bucket,
                 key: original_object_key,
-                timestamp: timestamp
-            }, {
-                jobId: `video-${videoRecord.id}`
-            })
-            await db.query(
-                'UPDATE Video SET status = $1 WHERE id = $2',
-                [JobStatus.UPLOADED, videoRecord.id]
-            );
-            console.log("Video added to the queue and updated the status")
-
-        } catch (queueError) {
-            console.error("Failed to add to queue:", queueError);
-            await db.query(
-                'UPDATE Video SET status = $1  WHERE id = $2',
-                [JobStatus.QUEUE_FAILED, videoRecord.id]
-            );
-            throw queueError
-        }
+                timestamp: timestamp,
+            }
+        );
+        console.log("Video added to the queue and updated the status");
 
         res.status(202).json({
             message: 'Video uploaded and being processed, please come back later!',
