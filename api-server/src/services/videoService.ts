@@ -149,24 +149,19 @@ export class VideoService {
       };
     }
 
+    if (videoRecord.status === JobStatus.DELETED) {
+      return {
+        status: videoRecord.status,
+        message: "Video has been auto-deleted after the download window expired."
+      };
+    }
+
     //  Handle Completed State (Generate URL)
     if (videoRecord.status === JobStatus.COMPLETED && videoRecord.processed_bucket && videoRecord.processed_object_key) {
       const downloadUrl = await getPresignedDownloadUrl(
         videoRecord.processed_bucket,
         videoRecord.processed_object_key
       );
-
-      // Schedule auto-deletion after 15 minutes (15 * 60 * 1000 ms)
-      await videoProcessingQueue.add(VideoEditType.DELETE_VIDEO, {
-        videoId: videoRecord.id,
-        bucket: videoRecord.original_bucket,
-        key: videoRecord.original_object_key,
-        processedBucket: videoRecord.processed_bucket,
-        processedKey: videoRecord.processed_object_key
-      }, {
-        jobId: `delete-${videoRecord.id}`, // Deterministic ID to prevent duplicates
-        delay: 15 * 60 * 1000 // 15 minutes delay
-      });
 
       return {
         ...videoRecord,

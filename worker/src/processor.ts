@@ -4,6 +4,7 @@ import db from "./db/database.js";
 import path from "path";
 import { downloadVideoFromAws, uploadFileFromLocal, deleteVideoFromAws } from "./config/aws.config.js";
 import { handleAudioExtraction, handleThumbnailCreation, handleVideoCompression, handleVideoResize } from "./controller/index.js";
+import { videoProcessingQueue } from "./config/queue.config.js";
 import { VideoEditType } from './types/video.type.js'
 import { JobStatus } from "./types/video.type.js";
 
@@ -95,6 +96,25 @@ export const processVideoJob = async (job: Job) => {
       [JobStatus.COMPLETED, processedBucketName, processedKey, videoId]
     );
     console.log("Successfully uploaded the edited file to S3");
+
+    // Schedule auto-deletion 15 minutes after completion so the user can
+    // download the result within the window. Deterministic jobId prevents
+    // duplicate cleanup jobs. A scheduling failure must NOT fail the job.
+    try {
+      await videoProcessingQueue.add(VideoEditType.DELETE_VIDEO, {
+        videoId,
+        bucket,
+        key,
+        processedBucket: processedBucketName,
+        processedKey,
+      }, {
+        jobId: `delete-${videoId}`,
+        delay: 15 * 60 * 1000, // 15 minutes
+      });
+      console.log(`Scheduled auto-deletion for video ${videoId} in 15 minutes`);
+    } catch (error) {
+      console.error(`Failed to schedule auto-deletion for video ${videoId}:`, error);
+    }
 
 
   } catch (error) {
