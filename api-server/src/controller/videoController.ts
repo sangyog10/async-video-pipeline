@@ -266,8 +266,73 @@ export const createThumbnail = async (req: Request, res: Response) => {
     }
 };
 
-export const getAllVideo = async (req: Request, res: Response) => {
+export const trimVideo = async (req: Request, res: Response) => {
     try {
+        const { clientId, startTime, endTime, bucket, key, fileName } = req.body;
+
+        if (!clientId) {
+            return res.status(400).json({ error: 'Client ID is required' });
+        }
+
+        if (startTime === undefined || endTime === undefined) {
+            return res.status(400).json({ error: 'Please provide startTime and endTime in seconds' });
+        }
+
+        const start = Number(startTime);
+        const end = Number(endTime);
+
+        if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || end <= start) {
+            return res.status(400).json({ error: 'startTime must be >= 0 and endTime must be greater than startTime' });
+        }
+
+        let videoRecord;
+
+        if (bucket && key) {
+            // Pre-uploaded file flow
+            if (!fileName) {
+                return res.status(400).json({ error: 'fileName is required for pre-uploaded files' });
+            }
+            videoRecord = await videoService.registerVideo({
+                title: fileName,
+                clientId,
+                bucketName: bucket,
+                key
+            });
+            console.log("Video registered successfully (pre-uploaded)");
+        } else if (req.file) {
+            // Legacy upload flow
+            videoRecord = await videoService.uploadVideo(req.file, clientId);
+            console.log("Video uploaded successfully for trimming");
+        } else {
+            return res.status(400).json({ error: 'No file uploaded or bucket/key provided' });
+        }
+
+        const { original_bucket, original_object_key } = videoRecord;
+        await videoService.enqueueVideoJob(
+            videoRecord,
+            VideoEditType.TRIM_VIDEO,
+            {
+                videoId: videoRecord.id,
+                bucket: original_bucket,
+                key: original_object_key,
+                startTime: start,
+                endTime: end,
+            }
+        );
+        console.log("Video added to the queue and updated the status");
+
+        res.status(202).json({
+            message: 'Video uploaded and being processed, please come back later!',
+            result: videoRecord
+        });
+
+    } catch (error) {
+        console.error("Upload failed:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
+export const getAllVideo = async (req: Request, res: Response) => {    try {
         const videos = await videoService.getAllVideo();
         return res.status(200).json({
             message: "Successfully fetched the video",

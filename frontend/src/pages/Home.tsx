@@ -28,6 +28,8 @@ const Home: React.FC = () => {
     const [compression, setCompression] = useState<number>(28);
     const [preset, setPreset] = useState<string>('slow');
     const [timestamp, setTimestamp] = useState<number>(1);
+    const [startTime, setStartTime] = useState<number>(0);
+    const [endTime, setEndTime] = useState<number>(30);
 
     useEffect(() => {
         return () => {
@@ -132,6 +134,9 @@ const Home: React.FC = () => {
                 case 'create-thumbnail':
                     endpoint = '/api/v1/videos/create-thumbnail';
                     break;
+                case 'trim':
+                    endpoint = '/api/v1/videos/trim';
+                    break;
             }
 
             const payload: any = {
@@ -149,6 +154,9 @@ const Home: React.FC = () => {
                 payload.preset = preset;
             } else if (selectedAction === 'create-thumbnail') {
                 payload.timestamp = timestamp;
+            } else if (selectedAction === 'trim') {
+                payload.startTime = startTime;
+                payload.endTime = endTime;
             }
 
             const processResponse = await axios.post(endpoint, payload, {
@@ -232,6 +240,7 @@ const Home: React.FC = () => {
                                 {selectedAction === 'resize' && 'Resize Video'}
                                 {selectedAction === 'compress' && 'Compress Video'}
                                 {selectedAction === 'create-thumbnail' && 'Create Thumbnail'}
+                                {selectedAction === 'trim' && 'Trim Video'}
                             </h3>
                             <p style={{ margin: '0.5rem 0 0 0', color: '#94a3b8' }}>
                                 Upload your video below to start processing.
@@ -319,6 +328,31 @@ const Home: React.FC = () => {
                                             value={timestamp}
                                             onChange={(e) => setTimestamp(Number(e.target.value))}
                                         />
+                                    </div>
+                                )}
+
+                                {selectedAction === 'trim' && (
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                        <div className="input-group">
+                                            <label className="label">Start Time (seconds)</label>
+                                            <input
+                                                type="number"
+                                                className="input"
+                                                min={0}
+                                                value={startTime}
+                                                onChange={(e) => setStartTime(Math.max(0, Number(e.target.value)))}
+                                            />
+                                        </div>
+                                        <div className="input-group">
+                                            <label className="label">End Time (seconds)</label>
+                                            <input
+                                                type="number"
+                                                className="input"
+                                                min={0}
+                                                value={endTime}
+                                                onChange={(e) => setEndTime(Number(e.target.value))}
+                                            />
+                                        </div>
                                     </div>
                                 )}
 

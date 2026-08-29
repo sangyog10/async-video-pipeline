@@ -3,7 +3,7 @@ import fs from 'fs'
 import db from "./db/database.js";
 import path from "path";
 import { downloadVideoFromAws, uploadFileFromLocal, deleteVideoFromAws } from "./config/aws.config.js";
-import { handleAudioExtraction, handleThumbnailCreation, handleVideoCompression, handleVideoResize } from "./controller/index.js";
+import { handleAudioExtraction, handleThumbnailCreation, handleVideoCompression, handleVideoResize, handleVideoTrim } from "./controller/index.js";
 import { videoProcessingQueue } from "./config/queue.config.js";
 import { VideoEditType } from './types/video.type.js'
 import { JobStatus } from "./types/video.type.js";
@@ -58,6 +58,17 @@ export const processVideoJob = async (job: Job) => {
           throw new Error("Timestamp is required for creating thumbnail");
         }
         processedFilePath = await handleThumbnailCreation(downloadedVideoPath, timestamp);
+        break;
+
+      case VideoEditType.TRIM_VIDEO:
+        const { startTime, endTime } = job.data;
+        if (startTime === undefined || endTime === undefined || startTime < 0 || endTime <= startTime) {
+          throw new Error("Valid startTime and endTime are required for TRIM_VIDEO");
+        }
+        processedFilePath = await handleVideoTrim(downloadedVideoPath, startTime, endTime, async (progress) => {
+          console.log(`Video ${videoId} progress: ${progress}%`);
+          await job.updateProgress(progress);
+        });
         break;
 
       case VideoEditType.DELETE_VIDEO:

@@ -2,7 +2,7 @@ import { Router } from "express";
 import upload from "../config/multer.config.js";
 import { handleUploadErrors } from "../middlewares/multerError.js";
 import { uploadLimiter, statusLimiter } from "../config/rateLimit.config.js";
-import { extractAudioFromVideo, getAllVideo, getVideoIdAndDownloadVideo, resizeVideo, compressVideo, createThumbnail, getUploadUrl } from "../controller/videoController.js";
+import { extractAudioFromVideo, getAllVideo, getVideoIdAndDownloadVideo, resizeVideo, compressVideo, createThumbnail, trimVideo, getUploadUrl } from "../controller/videoController.js";
 
 const router = Router();
 
@@ -238,6 +238,51 @@ router.post("/compress", uploadLimiter, upload.single('video'), handleUploadErro
  *         description: Internal server error
  */
 router.post("/create-thumbnail", uploadLimiter, upload.single('video'), handleUploadErrors, createThumbnail);
+
+/**
+ * @swagger
+ * /videos/trim:
+ *   post:
+ *     summary: Trim a video to a time range
+ *     tags: [Videos]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               video:
+ *                 type: string
+ *                 format: binary
+ *                 description: The video file to upload
+ *               clientId:
+ *                 type: string
+ *                 description: The ID of the client
+ *               startTime:
+ *                 type: integer
+ *                 description: Start time in seconds (>= 0)
+ *               endTime:
+ *                 type: integer
+ *                 description: End time in seconds (must be greater than startTime)
+ *     responses:
+ *       202:
+ *         description: Video uploaded and processing started
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 result:
+ *                   $ref: '#/components/schemas/Video'
+ *       400:
+ *         description: Bad request (missing file, clientId, startTime, or endTime)
+ *       500:
+ *         description: Internal server error
+ */
+router.post("/trim", uploadLimiter, upload.single('video'), handleUploadErrors, trimVideo);
 
 /**
  * @swagger

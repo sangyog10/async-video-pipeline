@@ -5,6 +5,7 @@ export enum VideoEditType {
   RESIZE_VIDEO = "resize",
   COMPRESS_VIDEO = "compress",
   CREATE_THUMBNAIL = "create-thumbnail",
+  TRIM_VIDEO = "trim",
   DELETE_VIDEO = "delete-video"
 }
 

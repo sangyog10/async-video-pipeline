@@ -1,5 +1,5 @@
 import React from 'react';
-import { Music, Maximize, Minimize, Image } from 'lucide-react';
+import { Music, Maximize, Minimize, Image, Scissors } from 'lucide-react';
 
 interface ActionCardsProps {
     onSelectAction: (action: string) => void;
@@ -31,6 +31,12 @@ const ActionCards: React.FC<ActionCardsProps> = ({ onSelectAction, selectedActio
             title: 'Create Thumbnail',
             description: 'Extract image from video',
             icon: Image
+        },
+        {
+            id: 'trim',
+            title: 'Trim Video',
+            description: 'Cut video to a time range',
+            icon: Scissors
         }
     ];
 
