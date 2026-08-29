@@ -1,6 +1,7 @@
 import { Router } from "express";
 import upload from "../config/multer.config.js";
 import { handleUploadErrors } from "../middlewares/multerError.js";
+import { uploadLimiter, statusLimiter } from "../config/rateLimit.config.js";
 import { extractAudioFromVideo, getAllVideo, getVideoIdAndDownloadVideo, resizeVideo, compressVideo, createThumbnail, getUploadUrl } from "../controller/videoController.js";
 
 const router = Router();
@@ -43,7 +44,7 @@ const router = Router();
  *       500:
  *         description: Internal server error
  */
-router.post("/presigned-url", getUploadUrl);
+router.post("/presigned-url", uploadLimiter, getUploadUrl);
 
 /**
  * @swagger
@@ -107,7 +108,7 @@ router.post("/presigned-url", getUploadUrl);
  *       500:
  *         description: Internal server error
  */
-router.post("/extract-audio", upload.single('video'), handleUploadErrors, extractAudioFromVideo);
+router.post("/extract-audio", uploadLimiter, upload.single('video'), handleUploadErrors, extractAudioFromVideo);
 
 /**
  * @swagger
@@ -152,7 +153,7 @@ router.post("/extract-audio", upload.single('video'), handleUploadErrors, extrac
  *       500:
  *         description: Internal server error
  */
-router.post("/resize", upload.single('video'), handleUploadErrors, resizeVideo);
+router.post("/resize", uploadLimiter, upload.single('video'), handleUploadErrors, resizeVideo);
 
 /**
  * @swagger
@@ -194,7 +195,7 @@ router.post("/resize", upload.single('video'), handleUploadErrors, resizeVideo);
  *       500:
  *         description: Internal server error
  */
-router.post("/compress", upload.single('video'), handleUploadErrors, compressVideo);
+router.post("/compress", uploadLimiter, upload.single('video'), handleUploadErrors, compressVideo);
 
 /**
  * @swagger
@@ -236,7 +237,7 @@ router.post("/compress", upload.single('video'), handleUploadErrors, compressVid
  *       500:
  *         description: Internal server error
  */
-router.post("/create-thumbnail", upload.single('video'), handleUploadErrors, createThumbnail);
+router.post("/create-thumbnail", uploadLimiter, upload.single('video'), handleUploadErrors, createThumbnail);
 
 /**
  * @swagger
@@ -261,7 +262,7 @@ router.post("/create-thumbnail", upload.single('video'), handleUploadErrors, cre
  *       500:
  *         description: Internal server error
  */
-router.get("/", getAllVideo);
+router.get("/", statusLimiter, getAllVideo);
 
 /**
  * @swagger
@@ -291,6 +292,6 @@ router.get("/", getAllVideo);
  *       500:
  *         description: Internal server error
  */
-router.get("/:videoId", getVideoIdAndDownloadVideo);
+router.get("/:videoId", statusLimiter, getVideoIdAndDownloadVideo);
 
 export default router;

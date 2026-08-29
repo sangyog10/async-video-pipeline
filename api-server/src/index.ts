@@ -1,7 +1,6 @@
 import express from 'express'
 import dotnev from 'dotenv'
 import cors from 'cors'
-import rateLimit from 'express-rate-limit'
 
 import db from './db/database.js'
 import apiRouter from './routes/index.js'
@@ -17,13 +16,6 @@ import swaggerUi from 'swagger-ui-express';
 import { specs } from './config/swagger.config.js';
 
 app.use(cors());
-
-const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    limit: 50, // Limit each IP to 50 requests per `window` 
-})
-
-app.use(limiter);
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

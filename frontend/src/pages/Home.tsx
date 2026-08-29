@@ -20,6 +20,7 @@ const Home: React.FC = () => {
 
 
     const pollInterval = useRef<ReturnType<typeof setInterval> | null>(null);
+    const pollErrors = useRef(0);
 
     // Additional inputs
     const [width, setWidth] = useState<number>(1280);
@@ -41,6 +42,7 @@ const Home: React.FC = () => {
         setVideoStatus('PROCESSING');
         setProgress(0);
         setQueueLength(0);
+        pollErrors.current = 0;
 
         pollInterval.current = setInterval(async () => {
             try {
@@ -67,10 +69,19 @@ const Home: React.FC = () => {
                         setError('Video processing failed. Please try again.');
                     }
                 }
-            } catch (err) {
+                pollErrors.current = 0;
+            } catch (err: any) {
+                pollErrors.current += 1;
                 console.error('Polling error:', err);
+                // Stop polling after repeated failures (e.g. rate limited) and
+                // surface the error instead of spinning silently forever.
+                if (pollErrors.current >= 3) {
+                    if (pollInterval.current) clearInterval(pollInterval.current);
+                    setPolling(false);
+                    setError(err.response?.data?.message || 'Lost connection to the server while processing. Please check back later.');
+                }
             }
-        }, 2000);
+        }, 5000);
     };
 
     const handleProcess = async () => {
