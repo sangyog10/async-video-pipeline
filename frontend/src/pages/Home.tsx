@@ -30,6 +30,8 @@ const Home: React.FC = () => {
     const [timestamp, setTimestamp] = useState<number>(1);
     const [startTime, setStartTime] = useState<number>(0);
     const [endTime, setEndTime] = useState<number>(30);
+    const [gifFps, setGifFps] = useState<number>(10);
+    const [gifWidth, setGifWidth] = useState<number>(480);
 
     useEffect(() => {
         return () => {
@@ -137,6 +139,9 @@ const Home: React.FC = () => {
                 case 'trim':
                     endpoint = '/api/v1/videos/trim';
                     break;
+                case 'create-gif':
+                    endpoint = '/api/v1/videos/create-gif';
+                    break;
             }
 
             const payload: any = {
@@ -157,6 +162,9 @@ const Home: React.FC = () => {
             } else if (selectedAction === 'trim') {
                 payload.startTime = startTime;
                 payload.endTime = endTime;
+            } else if (selectedAction === 'create-gif') {
+                payload.fps = gifFps;
+                payload.width = gifWidth;
             }
 
             const processResponse = await axios.post(endpoint, payload, {
@@ -241,6 +249,7 @@ const Home: React.FC = () => {
                                 {selectedAction === 'compress' && 'Compress Video'}
                                 {selectedAction === 'create-thumbnail' && 'Create Thumbnail'}
                                 {selectedAction === 'trim' && 'Trim Video'}
+                                {selectedAction === 'create-gif' && 'Create GIF'}
                             </h3>
                             <p style={{ margin: '0.5rem 0 0 0', color: '#94a3b8' }}>
                                 Upload your video below to start processing.
@@ -351,6 +360,33 @@ const Home: React.FC = () => {
                                                 min={0}
                                                 value={endTime}
                                                 onChange={(e) => setEndTime(Number(e.target.value))}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {selectedAction === 'create-gif' && (
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                        <div className="input-group">
+                                            <label className="label">Frame Rate (fps)</label>
+                                            <input
+                                                type="number"
+                                                className="input"
+                                                min={1}
+                                                max={60}
+                                                value={gifFps}
+                                                onChange={(e) => setGifFps(Number(e.target.value))}
+                                            />
+                                        </div>
+                                        <div className="input-group">
+                                            <label className="label">Width (px)</label>
+                                            <input
+                                                type="number"
+                                                className="input"
+                                                min={1}
+                                                max={1920}
+                                                value={gifWidth}
+                                                onChange={(e) => setGifWidth(Number(e.target.value))}
                                             />
                                         </div>
                                     </div>

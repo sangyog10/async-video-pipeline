@@ -332,6 +332,81 @@ export const trimVideo = async (req: Request, res: Response) => {
     }
 };
 
+export const createGif = async (req: Request, res: Response) => {
+    try {
+        const { clientId, fps, width, startTime, duration, bucket, key, fileName } = req.body;
+
+        if (!clientId) {
+            return res.status(400).json({ error: 'Client ID is required' });
+        }
+
+        const gifFps = fps === undefined ? 10 : Number(fps);
+        const gifWidth = width === undefined ? 480 : Number(width);
+        const gifStartTime = startTime === undefined ? 0 : Number(startTime);
+        const gifDuration = duration === undefined ? undefined : Number(duration);
+
+        if (!Number.isFinite(gifFps) || gifFps <= 0 || gifFps > 60) {
+            return res.status(400).json({ error: 'fps must be a number between 1 and 60' });
+        }
+        if (!Number.isFinite(gifWidth) || gifWidth <= 0 || gifWidth > 1920) {
+            return res.status(400).json({ error: 'width must be a number between 1 and 1920' });
+        }
+        if (!Number.isFinite(gifStartTime) || gifStartTime < 0) {
+            return res.status(400).json({ error: 'startTime must be a number >= 0' });
+        }
+        if (gifDuration !== undefined && (!Number.isFinite(gifDuration) || gifDuration <= 0)) {
+            return res.status(400).json({ error: 'duration must be a positive number' });
+        }
+
+        let videoRecord;
+
+        if (bucket && key) {
+            // Pre-uploaded file flow
+            if (!fileName) {
+                return res.status(400).json({ error: 'fileName is required for pre-uploaded files' });
+            }
+            videoRecord = await videoService.registerVideo({
+                title: fileName,
+                clientId,
+                bucketName: bucket,
+                key
+            });
+            console.log("Video registered successfully (pre-uploaded)");
+        } else if (req.file) {
+            // Legacy upload flow
+            videoRecord = await videoService.uploadVideo(req.file, clientId);
+            console.log("Video uploaded successfully for GIF creation");
+        } else {
+            return res.status(400).json({ error: 'No file uploaded or bucket/key provided' });
+        }
+
+        const { original_bucket, original_object_key } = videoRecord;
+        await videoService.enqueueVideoJob(
+            videoRecord,
+            VideoEditType.CREATE_GIF,
+            {
+                videoId: videoRecord.id,
+                bucket: original_bucket,
+                key: original_object_key,
+                fps: gifFps,
+                width: gifWidth,
+                startTime: gifStartTime,
+                duration: gifDuration,
+            }
+        );
+        console.log("Video added to the queue and updated the status");
+
+        res.status(202).json({
+            message: 'Video uploaded and being processed, please come back later!',
+            result: videoRecord
+        });
+
+    } catch (error) {
+        console.error("Upload failed:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+};
+
 export const getAllVideo = async (req: Request, res: Response) => {    try {
         const videos = await videoService.getAllVideo();
         return res.status(200).json({

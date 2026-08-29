@@ -3,7 +3,7 @@ import fs from 'fs'
 import db from "./db/database.js";
 import path from "path";
 import { downloadVideoFromAws, uploadFileFromLocal, deleteVideoFromAws } from "./config/aws.config.js";
-import { handleAudioExtraction, handleThumbnailCreation, handleVideoCompression, handleVideoResize, handleVideoTrim } from "./controller/index.js";
+import { handleAudioExtraction, handleThumbnailCreation, handleVideoCompression, handleVideoResize, handleVideoTrim, handleGifCreation } from "./controller/index.js";
 import { videoProcessingQueue } from "./config/queue.config.js";
 import { VideoEditType } from './types/video.type.js'
 import { JobStatus } from "./types/video.type.js";
@@ -66,6 +66,22 @@ export const processVideoJob = async (job: Job) => {
           throw new Error("Valid startTime and endTime are required for TRIM_VIDEO");
         }
         processedFilePath = await handleVideoTrim(downloadedVideoPath, startTime, endTime, async (progress) => {
+          console.log(`Video ${videoId} progress: ${progress}%`);
+          await job.updateProgress(progress);
+        });
+        break;
+
+      case VideoEditType.CREATE_GIF:
+        const { fps: gifFps, width: gifWidth, startTime: gifStartTime, duration: gifDuration } = job.data;
+        if (gifFps === undefined || gifWidth === undefined || gifFps <= 0 || gifWidth <= 0) {
+          throw new Error("Valid fps and width are required for CREATE_GIF");
+        }
+        processedFilePath = await handleGifCreation(downloadedVideoPath, {
+          fps: gifFps,
+          width: gifWidth,
+          startTime: gifStartTime ?? 0,
+          duration: gifDuration,
+        }, async (progress) => {
           console.log(`Video ${videoId} progress: ${progress}%`);
           await job.updateProgress(progress);
         });
