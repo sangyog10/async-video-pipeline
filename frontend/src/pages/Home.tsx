@@ -28,6 +28,14 @@ const Home: React.FC = () => {
     const [compression, setCompression] = useState<number>(28);
     const [preset, setPreset] = useState<string>('slow');
     const [timestamp, setTimestamp] = useState<number>(1);
+    const [startTime, setStartTime] = useState<number>(0);
+    const [endTime, setEndTime] = useState<number>(30);
+    const [gifFps, setGifFps] = useState<number>(10);
+    const [gifWidth, setGifWidth] = useState<number>(480);
+    const [watermarkFile, setWatermarkFile] = useState<File | null>(null);
+    const [watermarkPosition, setWatermarkPosition] = useState<string>('bottom-right');
+    const [watermarkOpacity, setWatermarkOpacity] = useState<number>(1);
+    const [watermarkWidth, setWatermarkWidth] = useState<number>(200);
 
     useEffect(() => {
         return () => {
@@ -87,6 +95,11 @@ const Home: React.FC = () => {
     const handleProcess = async () => {
         if (!selectedFile || !selectedAction) return;
 
+        if (selectedAction === 'add-watermark' && !watermarkFile) {
+            setError('Please upload a watermark image');
+            return;
+        }
+
         setLoading(true);
         setError(null);
         setResult(null);
@@ -116,6 +129,31 @@ const Home: React.FC = () => {
                 }
             });
 
+            // Step 2b: Upload watermark image (add-watermark only)
+            let watermarkBucket = '';
+            let watermarkKey = '';
+            if (selectedAction === 'add-watermark' && watermarkFile) {
+                const wmPresigned = await axios.post('/api/v1/videos/presigned-url', {
+                    fileName: watermarkFile.name,
+                    fileType: watermarkFile.type
+                });
+
+                await axios.put(wmPresigned.data.url, watermarkFile, {
+                    headers: {
+                        'Content-Type': watermarkFile.type
+                    },
+                    onUploadProgress: (progressEvent) => {
+                        if (progressEvent.total) {
+                            const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+                            setProgress(percentCompleted);
+                        }
+                    }
+                });
+
+                watermarkBucket = wmPresigned.data.bucket;
+                watermarkKey = wmPresigned.data.key;
+            }
+
             // Step 3: Trigger Processing
             let endpoint = '';
 
@@ -131,6 +169,15 @@ const Home: React.FC = () => {
                     break;
                 case 'create-thumbnail':
                     endpoint = '/api/v1/videos/create-thumbnail';
+                    break;
+                case 'trim':
+                    endpoint = '/api/v1/videos/trim';
+                    break;
+                case 'create-gif':
+                    endpoint = '/api/v1/videos/create-gif';
+                    break;
+                case 'add-watermark':
+                    endpoint = '/api/v1/videos/add-watermark';
                     break;
             }
 
@@ -149,6 +196,18 @@ const Home: React.FC = () => {
                 payload.preset = preset;
             } else if (selectedAction === 'create-thumbnail') {
                 payload.timestamp = timestamp;
+            } else if (selectedAction === 'trim') {
+                payload.startTime = startTime;
+                payload.endTime = endTime;
+            } else if (selectedAction === 'create-gif') {
+                payload.fps = gifFps;
+                payload.width = gifWidth;
+            } else if (selectedAction === 'add-watermark') {
+                payload.watermarkBucket = watermarkBucket;
+                payload.watermarkKey = watermarkKey;
+                payload.position = watermarkPosition;
+                payload.opacity = watermarkOpacity;
+                if (watermarkWidth > 0) payload.watermarkWidth = watermarkWidth;
             }
 
             const processResponse = await axios.post(endpoint, payload, {
@@ -180,6 +239,9 @@ const Home: React.FC = () => {
     const resetFlow = () => {
         setSelectedAction(null);
         setSelectedFile(null);
+        setWatermarkFile(null);
+        setWatermarkPosition('bottom-right');
+        setWatermarkOpacity(1);
         setResult(null);
         setError(null);
         setVideoStatus(null);
@@ -232,6 +294,9 @@ const Home: React.FC = () => {
                                 {selectedAction === 'resize' && 'Resize Video'}
                                 {selectedAction === 'compress' && 'Compress Video'}
                                 {selectedAction === 'create-thumbnail' && 'Create Thumbnail'}
+                                {selectedAction === 'trim' && 'Trim Video'}
+                                {selectedAction === 'create-gif' && 'Create GIF'}
+                                {selectedAction === 'add-watermark' && 'Add Watermark'}
                             </h3>
                             <p style={{ margin: '0.5rem 0 0 0', color: '#94a3b8' }}>
                                 Upload your video below to start processing.
@@ -243,6 +308,7 @@ const Home: React.FC = () => {
                             onFileSelect={setSelectedFile}
                             onClear={() => {
                                 setSelectedFile(null);
+                                setWatermarkFile(null);
                                 setResult(null);
                                 setError(null);
                                 setVideoStatus(null);
@@ -319,6 +385,130 @@ const Home: React.FC = () => {
                                             value={timestamp}
                                             onChange={(e) => setTimestamp(Number(e.target.value))}
                                         />
+                                    </div>
+                                )}
+
+                                {selectedAction === 'trim' && (
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                        <div className="input-group">
+                                            <label className="label">Start Time (seconds)</label>
+                                            <input
+                                                type="number"
+                                                className="input"
+                                                min={0}
+                                                value={startTime}
+                                                onChange={(e) => setStartTime(Math.max(0, Number(e.target.value)))}
+                                            />
+                                        </div>
+                                        <div className="input-group">
+                                            <label className="label">End Time (seconds)</label>
+                                            <input
+                                                type="number"
+                                                className="input"
+                                                min={0}
+                                                value={endTime}
+                                                onChange={(e) => setEndTime(Number(e.target.value))}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {selectedAction === 'create-gif' && (
+                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                                        <div className="input-group">
+                                            <label className="label">Frame Rate (fps)</label>
+                                            <input
+                                                type="number"
+                                                className="input"
+                                                min={1}
+                                                max={60}
+                                                value={gifFps}
+                                                onChange={(e) => setGifFps(Number(e.target.value))}
+                                            />
+                                        </div>
+                                        <div className="input-group">
+                                            <label className="label">Width (px)</label>
+                                            <input
+                                                type="number"
+                                                className="input"
+                                                min={1}
+                                                max={1920}
+                                                value={gifWidth}
+                                                onChange={(e) => setGifWidth(Number(e.target.value))}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {selectedAction === 'add-watermark' && (
+                                    <div>
+                                        <div className="input-group">
+                                            <label className="label">Watermark Image</label>
+                                            <input
+                                                type="file"
+                                                accept="image/*"
+                                                onChange={(e) => {
+                                                    if (e.target.files && e.target.files[0]) {
+                                                        setWatermarkFile(e.target.files[0]);
+                                                    }
+                                                }}
+                                            />
+                                            {watermarkFile && (
+                                                <p style={{ fontSize: '0.875rem', color: '#94a3b8', marginTop: '0.5rem' }}>
+                                                    {watermarkFile.name} ({(watermarkFile.size / (1024 * 1024)).toFixed(2)} MB)
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        <div className="input-group" style={{ marginTop: '1rem' }}>
+                                            <label className="label">Position</label>
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.5rem' }}>
+                                                {['top-left', 'top-right', 'center', 'bottom-left', 'bottom-right'].map((pos) => (
+                                                    <button
+                                                        key={pos}
+                                                        type="button"
+                                                        onClick={() => setWatermarkPosition(pos)}
+                                                        style={{
+                                                            padding: '0.5rem',
+                                                            borderRadius: '0.5rem',
+                                                            border: `2px solid ${watermarkPosition === pos ? '#6366f1' : 'rgba(255, 255, 255, 0.1)'}`,
+                                                            background: watermarkPosition === pos ? 'rgba(99, 102, 241, 0.1)' : 'rgba(255, 255, 255, 0.05)',
+                                                            color: '#e2e8f0',
+                                                            cursor: 'pointer',
+                                                            fontSize: '0.8rem'
+                                                        }}
+                                                    >
+                                                        {pos}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+                                            <div className="input-group">
+                                                <label className="label">Opacity ({watermarkOpacity.toFixed(2)})</label>
+                                                <input
+                                                    type="range"
+                                                    min={0}
+                                                    max={1}
+                                                    step={0.05}
+                                                    value={watermarkOpacity}
+                                                    onChange={(e) => setWatermarkOpacity(Number(e.target.value))}
+                                                    style={{ width: '100%' }}
+                                                />
+                                            </div>
+                                            <div className="input-group">
+                                                <label className="label">Width (px)</label>
+                                                <input
+                                                    type="number"
+                                                    className="input"
+                                                    min={1}
+                                                    max={1920}
+                                                    value={watermarkWidth}
+                                                    onChange={(e) => setWatermarkWidth(Number(e.target.value))}
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
 

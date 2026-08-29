@@ -2,7 +2,7 @@ import { Router } from "express";
 import upload from "../config/multer.config.js";
 import { handleUploadErrors } from "../middlewares/multerError.js";
 import { uploadLimiter, statusLimiter } from "../config/rateLimit.config.js";
-import { extractAudioFromVideo, getAllVideo, getVideoIdAndDownloadVideo, resizeVideo, compressVideo, createThumbnail, getUploadUrl } from "../controller/videoController.js";
+import { extractAudioFromVideo, getAllVideo, getVideoIdAndDownloadVideo, resizeVideo, compressVideo, createThumbnail, trimVideo, createGif, addWatermark, getUploadUrl } from "../controller/videoController.js";
 
 const router = Router();
 
@@ -238,6 +238,163 @@ router.post("/compress", uploadLimiter, upload.single('video'), handleUploadErro
  *         description: Internal server error
  */
 router.post("/create-thumbnail", uploadLimiter, upload.single('video'), handleUploadErrors, createThumbnail);
+
+/**
+ * @swagger
+ * /videos/trim:
+ *   post:
+ *     summary: Trim a video to a time range
+ *     tags: [Videos]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               video:
+ *                 type: string
+ *                 format: binary
+ *                 description: The video file to upload
+ *               clientId:
+ *                 type: string
+ *                 description: The ID of the client
+ *               startTime:
+ *                 type: integer
+ *                 description: Start time in seconds (>= 0)
+ *               endTime:
+ *                 type: integer
+ *                 description: End time in seconds (must be greater than startTime)
+ *     responses:
+ *       202:
+ *         description: Video uploaded and processing started
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 result:
+ *                   $ref: '#/components/schemas/Video'
+ *       400:
+ *         description: Bad request (missing file, clientId, startTime, or endTime)
+ *       500:
+ *         description: Internal server error
+ */
+router.post("/trim", uploadLimiter, upload.single('video'), handleUploadErrors, trimVideo);
+
+/**
+ * @swagger
+ * /videos/create-gif:
+ *   post:
+ *     summary: Create a looping GIF from a video
+ *     tags: [Videos]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               video:
+ *                 type: string
+ *                 format: binary
+ *                 description: The video file to upload
+ *               clientId:
+ *                 type: string
+ *                 description: The ID of the client
+ *               fps:
+ *                 type: integer
+ *                 description: Frames per second (default 10)
+ *               width:
+ *                 type: integer
+ *                 description: Output width in pixels, height auto (default 480)
+ *               startTime:
+ *                 type: integer
+ *                 description: Start time in seconds (default 0)
+ *               duration:
+ *                 type: integer
+ *                 description: Duration in seconds (default: whole video)
+ *     responses:
+ *       202:
+ *         description: Video uploaded and processing started
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 result:
+ *                   $ref: '#/components/schemas/Video'
+ *       400:
+ *         description: Bad request (missing file, clientId, or invalid params)
+ *       500:
+ *         description: Internal server error
+ */
+router.post("/create-gif", uploadLimiter, upload.single('video'), handleUploadErrors, createGif);
+
+/**
+ * @swagger
+ * /videos/add-watermark:
+ *   post:
+ *     summary: Overlay a watermark image onto a video
+ *     description: Upload the watermark image first via the presigned URL endpoint, then pass its bucket/key along with the video.
+ *     tags: [Videos]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               clientId:
+ *                 type: string
+ *                 description: The ID of the client
+ *               bucket:
+ *                 type: string
+ *                 description: Bucket of the pre-uploaded video
+ *               key:
+ *                 type: string
+ *                 description: Key of the pre-uploaded video
+ *               fileName:
+ *                 type: string
+ *                 description: Original video file name
+ *               watermarkBucket:
+ *                 type: string
+ *                 description: Bucket of the pre-uploaded watermark image
+ *               watermarkKey:
+ *                 type: string
+ *                 description: Key of the pre-uploaded watermark image
+ *               position:
+ *                 type: string
+ *                 enum: [top-left, top-right, center, bottom-left, bottom-right]
+ *                 description: Watermark position (default bottom-right)
+ *               opacity:
+ *                 type: number
+ *                 description: Opacity 0-1 (default 1)
+ *               watermarkWidth:
+ *                 type: integer
+ *                 description: Target watermark width in px, height auto (default: original size)
+ *     responses:
+ *       202:
+ *         description: Video uploaded and processing started
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 result:
+ *                   $ref: '#/components/schemas/Video'
+ *       400:
+ *         description: Bad request (missing clientId, watermarkBucket, or invalid params)
+ *       500:
+ *         description: Internal server error
+ */
+router.post("/add-watermark", uploadLimiter, upload.single('video'), handleUploadErrors, addWatermark);
 
 /**
  * @swagger

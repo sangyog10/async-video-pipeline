@@ -3,7 +3,8 @@ import fs from 'fs'
 import db from "./db/database.js";
 import path from "path";
 import { downloadVideoFromAws, uploadFileFromLocal, deleteVideoFromAws } from "./config/aws.config.js";
-import { handleAudioExtraction, handleThumbnailCreation, handleVideoCompression, handleVideoResize } from "./controller/index.js";
+import { handleAudioExtraction, handleThumbnailCreation, handleVideoCompression, handleVideoResize, handleVideoTrim, handleGifCreation, handleAddWatermark } from "./controller/index.js";
+import { videoProcessingQueue } from "./config/queue.config.js";
 import { VideoEditType } from './types/video.type.js'
 import { JobStatus } from "./types/video.type.js";
 
@@ -14,6 +15,7 @@ export const processVideoJob = async (job: Job) => {
   const { videoId, bucket, key } = job.data;
 
   let downloadedVideoPath: string | null = null;
+  let watermarkDownloadedPath: string | null = null;
   let processedFilePath: string = "";
 
   try {
@@ -59,8 +61,51 @@ export const processVideoJob = async (job: Job) => {
         processedFilePath = await handleThumbnailCreation(downloadedVideoPath, timestamp);
         break;
 
+      case VideoEditType.TRIM_VIDEO:
+        const { startTime, endTime } = job.data;
+        if (startTime === undefined || endTime === undefined || startTime < 0 || endTime <= startTime) {
+          throw new Error("Valid startTime and endTime are required for TRIM_VIDEO");
+        }
+        processedFilePath = await handleVideoTrim(downloadedVideoPath, startTime, endTime, async (progress) => {
+          console.log(`Video ${videoId} progress: ${progress}%`);
+          await job.updateProgress(progress);
+        });
+        break;
+
+      case VideoEditType.CREATE_GIF:
+        const { fps: gifFps, width: gifWidth, startTime: gifStartTime, duration: gifDuration } = job.data;
+        if (gifFps === undefined || gifWidth === undefined || gifFps <= 0 || gifWidth <= 0) {
+          throw new Error("Valid fps and width are required for CREATE_GIF");
+        }
+        processedFilePath = await handleGifCreation(downloadedVideoPath, {
+          fps: gifFps,
+          width: gifWidth,
+          startTime: gifStartTime ?? 0,
+          duration: gifDuration,
+        }, async (progress) => {
+          console.log(`Video ${videoId} progress: ${progress}%`);
+          await job.updateProgress(progress);
+        });
+        break;
+
+      case VideoEditType.ADD_WATERMARK:
+        const { watermarkBucket, watermarkKey, position, opacity, watermarkWidth } = job.data;
+        if (!watermarkBucket || !watermarkKey) {
+          throw new Error("watermarkBucket and watermarkKey are required for ADD_WATERMARK");
+        }
+        watermarkDownloadedPath = await downloadVideoFromAws(watermarkBucket, watermarkKey, downloadedFileStoringFolder);
+        processedFilePath = await handleAddWatermark(downloadedVideoPath, watermarkDownloadedPath, {
+          position,
+          opacity: opacity ?? 1,
+          width: watermarkWidth,
+        }, async (progress) => {
+          console.log(`Video ${videoId} progress: ${progress}%`);
+          await job.updateProgress(progress);
+        });
+        break;
+
       case VideoEditType.DELETE_VIDEO:
-        const { processedBucket, processedKey } = job.data;
+        const { processedBucket, processedKey, watermarkBucket: wmBucket, watermarkKey: wmKey } = job.data;
 
         // Delete original file
         if (bucket && key) {
@@ -70,6 +115,11 @@ export const processVideoJob = async (job: Job) => {
         // Delete processed file
         if (processedBucket && processedKey) {
           await deleteVideoFromAws(processedBucket, processedKey);
+        }
+
+        // Delete watermark image if one was used
+        if (wmBucket && wmKey) {
+          await deleteVideoFromAws(wmBucket, wmKey);
         }
 
         // Update status to DELETED
@@ -96,6 +146,28 @@ export const processVideoJob = async (job: Job) => {
     );
     console.log("Successfully uploaded the edited file to S3");
 
+    // Schedule auto-deletion 15 minutes after completion so the user can
+    // download the result within the window. Deterministic jobId prevents
+    // duplicate cleanup jobs. A scheduling failure must NOT fail the job.
+    try {
+      await videoProcessingQueue.add(VideoEditType.DELETE_VIDEO, {
+        videoId,
+        bucket,
+        key,
+        processedBucket: processedBucketName,
+        processedKey,
+        ...(job.data.watermarkBucket && job.data.watermarkKey
+          ? { watermarkBucket: job.data.watermarkBucket, watermarkKey: job.data.watermarkKey }
+          : {}),
+      }, {
+        jobId: `delete-${videoId}`,
+        delay: 15 * 60 * 1000, // 15 minutes
+      });
+      console.log(`Scheduled auto-deletion for video ${videoId} in 15 minutes`);
+    } catch (error) {
+      console.error(`Failed to schedule auto-deletion for video ${videoId}:`, error);
+    }
+
 
   } catch (error) {
     console.error("Error processing video job:", error);
@@ -113,6 +185,14 @@ export const processVideoJob = async (job: Job) => {
       cleanupPromises.push(
         fs.promises.rm(downloadedVideoPath).catch(err => {
           if (err.code !== 'ENOENT') console.error(`Failed to delete ${downloadedVideoPath}:`, err);
+        })
+      );
+    }
+
+    if (watermarkDownloadedPath) {
+      cleanupPromises.push(
+        fs.promises.rm(watermarkDownloadedPath).catch(err => {
+          if (err.code !== 'ENOENT') console.error(`Failed to delete ${watermarkDownloadedPath}:`, err);
         })
       );
     }
