@@ -1,6 +1,7 @@
 import path from "path";
 import fs from "fs";
-import { createGif, GifOptions } from "../lib/index.js";
+import { createGif } from "../lib/index.js";
+import type { GifOptions } from "../lib/index.js";
 
 export const handleGifCreation = async (
   videoPath: string,

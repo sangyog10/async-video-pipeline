@@ -12,10 +12,18 @@ export interface Video {
   progress?: number;
   job_type?: string | null;
   job_params?: Record<string, unknown> | null;
+  webhook_url?: string | null;
+  webhook_secret?: string | null;
 }
 
 
 export const VideoQueueName = "Video-processing"
+
+/**
+ * Video shape safe to expose to clients: never includes the webhook secret
+ * or the stored job params (which contain the webhook secret).
+ */
+export type SafeVideo = Omit<Video, 'webhook_secret' | 'job_params'>;
 
 
 export enum VideoEditType {

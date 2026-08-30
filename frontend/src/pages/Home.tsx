@@ -19,8 +19,8 @@ const Home: React.FC = () => {
     const [queueLength, setQueueLength] = useState<number>(0);
 
 
-    const pollInterval = useRef<ReturnType<typeof setInterval> | null>(null);
-    const pollErrors = useRef(0);
+    const eventSource = useRef<EventSource | null>(null);
+    const sseErrors = useRef(0);
 
     // Additional inputs
     const [width, setWidth] = useState<number>(1280);
@@ -39,57 +39,80 @@ const Home: React.FC = () => {
 
     useEffect(() => {
         return () => {
-            if (pollInterval.current) {
-                clearInterval(pollInterval.current);
+            if (eventSource.current) {
+                eventSource.current.close();
             }
         };
     }, []);
 
-    const startPolling = (videoId: string) => {
+    const closeEventSource = () => {
+        if (eventSource.current) {
+            eventSource.current.close();
+            eventSource.current = null;
+        }
+    };
+
+    const handleStatusEvent = (data: any) => {
+        const status = data?.status;
+        setVideoStatus(status);
+        if (data?.progress !== undefined && data?.progress !== null) {
+            setProgress(data.progress);
+        }
+        if (data?.queueLength !== undefined) {
+            setQueueLength(data.queueLength);
+        }
+
+        if (status === 'COMPLETED') {
+            setDownloadUrl(data.downloadUrl);
+            setPolling(false);
+            closeEventSource();
+        } else if (status === 'FAILED' || status === 'QUEUE_FAILED') {
+            setPolling(false);
+            closeEventSource();
+            setError('Video processing failed. Please try again.');
+        }
+    };
+
+    const startStatusUpdates = (videoId: string) => {
         setPolling(true);
         setVideoStatus('PROCESSING');
         setProgress(0);
         setQueueLength(0);
-        pollErrors.current = 0;
+        sseErrors.current = 0;
 
-        pollInterval.current = setInterval(async () => {
-            try {
-                const response = await axios.get(`/api/v1/videos/${videoId}`);
-                const data = response.data;
+        closeEventSource();
 
-                if (data.video) {
-                    const status = data.video.status;
-                    setVideoStatus(status);
-                    if (data.video.progress !== undefined && data.video.progress !== null) {
-                        setProgress(data.video.progress);
-                    }
-                    if (data.video.queueLength !== undefined) {
-                        setQueueLength(data.video.queueLength);
-                    }
+        const es = new EventSource(`/api/v1/videos/${videoId}/stream`);
+        eventSource.current = es;
 
-                    if (status === 'COMPLETED') {
-                        setDownloadUrl(data.video.downloadUrl);
-                        setPolling(false);
-                        if (pollInterval.current) clearInterval(pollInterval.current);
-                    } else if (status === 'FAILED' || status === 'QUEUE_FAILED') {
-                        setPolling(false);
-                        if (pollInterval.current) clearInterval(pollInterval.current);
-                        setError('Video processing failed. Please try again.');
+        es.addEventListener('snapshot', (e) => handleStatusEvent(JSON.parse((e as MessageEvent).data)));
+        es.addEventListener('progress', (e) => {
+            const data = JSON.parse((e as MessageEvent).data);
+            if (data?.progress !== undefined) setProgress(data.progress);
+        });
+        es.addEventListener('completed', (e) => handleStatusEvent(JSON.parse((e as MessageEvent).data)));
+        es.addEventListener('failed', (e) => handleStatusEvent(JSON.parse((e as MessageEvent).data)));
+
+        es.onerror = async () => {
+            // EventSource auto-reconnects; only give up after repeated failures
+            sseErrors.current += 1;
+            if (sseErrors.current >= 3) {
+                es.close();
+                eventSource.current = null;
+                setPolling(false);
+                try {
+                    const response = await axios.get(`/api/v1/videos/${videoId}`);
+                    const data = response.data.video;
+                    if (data?.status === 'COMPLETED') {
+                        handleStatusEvent(data);
+                    } else {
+                        setError('Lost connection to the server while processing. Please check back later.');
                     }
-                }
-                pollErrors.current = 0;
-            } catch (err: any) {
-                pollErrors.current += 1;
-                console.error('Polling error:', err);
-                // Stop polling after repeated failures (e.g. rate limited) and
-                // surface the error instead of spinning silently forever.
-                if (pollErrors.current >= 3) {
-                    if (pollInterval.current) clearInterval(pollInterval.current);
-                    setPolling(false);
-                    setError(err.response?.data?.message || 'Lost connection to the server while processing. Please check back later.');
+                } catch {
+                    setError('Lost connection to the server while processing. Please check back later.');
                 }
             }
-        }, 5000);
+        };
     };
 
     const handleProcess = async () => {
@@ -105,7 +128,7 @@ const Home: React.FC = () => {
         setResult(null);
         setVideoStatus(null);
         setDownloadUrl(null);
-        if (pollInterval.current) clearInterval(pollInterval.current);
+        closeEventSource();
 
         try {
             // Step 1: Get Presigned URL
@@ -218,15 +241,15 @@ const Home: React.FC = () => {
 
             setResult(processResponse.data);
             if (processResponse.data.result && processResponse.data.result.id) {
-                startPolling(processResponse.data.result.id);
+                startStatusUpdates(processResponse.data.result.id);
             }
         } catch (err: any) {
             console.error(err);
             setError(err.response?.data?.error || 'Something went wrong');
             setLoading(false); // Ensure loading is set to false on error
         }
-        // Note: setLoading(false) is NOT called in success path here because startPolling takes over?
-        // No, startPolling sets polling to true. loading should be false.
+        // Note: setLoading(false) is NOT called in success path here because startStatusUpdates takes over?
+        // No, startStatusUpdates sets polling to true. loading should be false.
         // In the original code, setLoading(false) was in finally block.
         // But here, if we start polling, we might want to show "Processing..." which uses `polling` state.
         // The UI shows "Uploading..." if `loading` is true.
@@ -246,7 +269,7 @@ const Home: React.FC = () => {
         setError(null);
         setVideoStatus(null);
         setDownloadUrl(null);
-        if (pollInterval.current) clearInterval(pollInterval.current);
+        closeEventSource();
     };
 
     return (
@@ -313,7 +336,7 @@ const Home: React.FC = () => {
                                 setError(null);
                                 setVideoStatus(null);
                                 setDownloadUrl(null);
-                                if (pollInterval.current) clearInterval(pollInterval.current);
+                                closeEventSource();
                             }}
                         />
 

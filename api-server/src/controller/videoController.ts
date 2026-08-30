@@ -4,8 +4,17 @@ import { VideoEditType } from "../types/videoType.js";
 
 import { getPresignedUploadUrl } from "../config/aws.config.js";
 import { VideoBucket } from "../types/bucketName.js";
+import { isSafeWebhookUrl } from "../utils/webhook.js";
+import { subscribeToVideo, unsubscribeFromVideo } from "../config/sseHub.js";
 
 const videoService = new VideoService();
+
+const validateWebhook = async (webhookUrl?: string): Promise<string | null> => {
+    if (webhookUrl && !(await isSafeWebhookUrl(webhookUrl))) {
+        return 'webhookUrl must be a public http(s) URL';
+    }
+    return null;
+};
 
 export const getUploadUrl = async (req: Request, res: Response) => {
     try {
@@ -32,10 +41,15 @@ export const getUploadUrl = async (req: Request, res: Response) => {
 
 export const extractAudioFromVideo = async (req: Request, res: Response) => {
     try {
-        const { clientId, bucket, key, fileName } = req.body;
+        const { clientId, bucket, key, fileName, webhookUrl, webhookSecret } = req.body;
 
         if (!clientId) {
             return res.status(400).json({ error: 'Client ID is required' });
+        }
+
+        const webhookError = await validateWebhook(webhookUrl);
+        if (webhookError) {
+            return res.status(400).json({ error: webhookError });
         }
 
         let videoRecord;
@@ -49,12 +63,14 @@ export const extractAudioFromVideo = async (req: Request, res: Response) => {
                 title: fileName,
                 clientId,
                 bucketName: bucket,
-                key
+                key,
+                webhookUrl,
+                webhookSecret
             });
             console.log("Video registered successfully (pre-uploaded)");
         } else if (req.file) {
             // Legacy upload flow
-            videoRecord = await videoService.uploadVideo(req.file, clientId);
+            videoRecord = await videoService.uploadVideo(req.file, clientId, webhookUrl, webhookSecret);
             console.log("Video uploaded successfully");
         } else {
             return res.status(400).json({ error: 'No file uploaded or bucket/key provided' });
@@ -85,10 +101,15 @@ export const extractAudioFromVideo = async (req: Request, res: Response) => {
 
 export const resizeVideo = async (req: Request, res: Response) => {
     try {
-        const { clientId, height, width, bucket, key, fileName } = req.body;
+        const { clientId, height, width, bucket, key, fileName, webhookUrl, webhookSecret } = req.body;
 
         if (!clientId) {
             return res.status(400).json({ error: 'Client ID is required' });
+        }
+
+        const webhookError = await validateWebhook(webhookUrl);
+        if (webhookError) {
+            return res.status(400).json({ error: webhookError });
         }
 
         if (!height || !width) {
@@ -111,13 +132,15 @@ export const resizeVideo = async (req: Request, res: Response) => {
                 title: fileName,
                 clientId,
                 bucketName: bucket,
-                key
+                key,
+                webhookUrl,
+                webhookSecret
             });
             console.log("Video registered successfully (pre-uploaded)");
         }
         else if (req.file) {
             // Legacy upload flow
-            videoRecord = await videoService.uploadVideo(req.file, clientId);
+            videoRecord = await videoService.uploadVideo(req.file, clientId, webhookUrl, webhookSecret);
             console.log("Video uploaded successfully");
         }
         else {
@@ -150,10 +173,15 @@ export const resizeVideo = async (req: Request, res: Response) => {
 export const compressVideo = async (req: Request, res: Response) => {
     try {
         let compressionRate: number;
-        const { clientId, compression, preset, bucket, key, fileName } = req.body;
+        const { clientId, compression, preset, bucket, key, fileName, webhookUrl, webhookSecret } = req.body;
 
         if (!clientId) {
             return res.status(400).json({ error: 'Client ID is required' });
+        }
+
+        const webhookError = await validateWebhook(webhookUrl);
+        if (webhookError) {
+            return res.status(400).json({ error: webhookError });
         }
         if (!compression) {
             compressionRate = 28; // balanced ratio, medium quality and size
@@ -172,12 +200,14 @@ export const compressVideo = async (req: Request, res: Response) => {
                 title: fileName,
                 clientId,
                 bucketName: bucket,
-                key
+                key,
+                webhookUrl,
+                webhookSecret
             });
             console.log("Video registered successfully (pre-uploaded)");
         } else if (req.file) {
             // Legacy upload flow
-            videoRecord = await videoService.uploadVideo(req.file, clientId);
+            videoRecord = await videoService.uploadVideo(req.file, clientId, webhookUrl, webhookSecret);
             console.log("Video uploaded successfully for compression");
         } else {
             return res.status(400).json({ error: 'No file uploaded or bucket/key provided' });
@@ -210,10 +240,15 @@ export const compressVideo = async (req: Request, res: Response) => {
 
 export const createThumbnail = async (req: Request, res: Response) => {
     try {
-        const { clientId, timestamp, bucket, key, fileName } = req.body;
+        const { clientId, timestamp, bucket, key, fileName, webhookUrl, webhookSecret } = req.body;
 
         if (!clientId) {
             return res.status(400).json({ error: 'Client ID is required' });
+        }
+
+        const webhookError = await validateWebhook(webhookUrl);
+        if (webhookError) {
+            return res.status(400).json({ error: webhookError });
         }
 
         if (!timestamp) {
@@ -231,12 +266,14 @@ export const createThumbnail = async (req: Request, res: Response) => {
                 title: fileName,
                 clientId,
                 bucketName: bucket,
-                key
+                key,
+                webhookUrl,
+                webhookSecret
             });
             console.log("Video registered successfully (pre-uploaded)");
         } else if (req.file) {
             // Legacy upload flow
-            videoRecord = await videoService.uploadVideo(req.file, clientId);
+            videoRecord = await videoService.uploadVideo(req.file, clientId, webhookUrl, webhookSecret);
             console.log("Video uploaded successfully for thumbnail creation");
         } else {
             return res.status(400).json({ error: 'No file uploaded or bucket/key provided' });
@@ -268,10 +305,15 @@ export const createThumbnail = async (req: Request, res: Response) => {
 
 export const trimVideo = async (req: Request, res: Response) => {
     try {
-        const { clientId, startTime, endTime, bucket, key, fileName } = req.body;
+        const { clientId, startTime, endTime, bucket, key, fileName, webhookUrl, webhookSecret } = req.body;
 
         if (!clientId) {
             return res.status(400).json({ error: 'Client ID is required' });
+        }
+
+        const webhookError = await validateWebhook(webhookUrl);
+        if (webhookError) {
+            return res.status(400).json({ error: webhookError });
         }
 
         if (startTime === undefined || endTime === undefined) {
@@ -296,12 +338,14 @@ export const trimVideo = async (req: Request, res: Response) => {
                 title: fileName,
                 clientId,
                 bucketName: bucket,
-                key
+                key,
+                webhookUrl,
+                webhookSecret
             });
             console.log("Video registered successfully (pre-uploaded)");
         } else if (req.file) {
             // Legacy upload flow
-            videoRecord = await videoService.uploadVideo(req.file, clientId);
+            videoRecord = await videoService.uploadVideo(req.file, clientId, webhookUrl, webhookSecret);
             console.log("Video uploaded successfully for trimming");
         } else {
             return res.status(400).json({ error: 'No file uploaded or bucket/key provided' });
@@ -334,10 +378,15 @@ export const trimVideo = async (req: Request, res: Response) => {
 
 export const createGif = async (req: Request, res: Response) => {
     try {
-        const { clientId, fps, width, startTime, duration, bucket, key, fileName } = req.body;
+        const { clientId, fps, width, startTime, duration, bucket, key, fileName, webhookUrl, webhookSecret } = req.body;
 
         if (!clientId) {
             return res.status(400).json({ error: 'Client ID is required' });
+        }
+
+        const webhookError = await validateWebhook(webhookUrl);
+        if (webhookError) {
+            return res.status(400).json({ error: webhookError });
         }
 
         const gifFps = fps === undefined ? 10 : Number(fps);
@@ -369,12 +418,14 @@ export const createGif = async (req: Request, res: Response) => {
                 title: fileName,
                 clientId,
                 bucketName: bucket,
-                key
+                key,
+                webhookUrl,
+                webhookSecret
             });
             console.log("Video registered successfully (pre-uploaded)");
         } else if (req.file) {
             // Legacy upload flow
-            videoRecord = await videoService.uploadVideo(req.file, clientId);
+            videoRecord = await videoService.uploadVideo(req.file, clientId, webhookUrl, webhookSecret);
             console.log("Video uploaded successfully for GIF creation");
         } else {
             return res.status(400).json({ error: 'No file uploaded or bucket/key provided' });
@@ -411,10 +462,15 @@ const VALID_WATERMARK_POSITIONS = ['top-left', 'top-right', 'bottom-left', 'bott
 
 export const addWatermark = async (req: Request, res: Response) => {
     try {
-        const { clientId, position, opacity, watermarkWidth, bucket, key, fileName, watermarkBucket, watermarkKey } = req.body;
+        const { clientId, position, opacity, watermarkWidth, bucket, key, fileName, watermarkBucket, watermarkKey, webhookUrl, webhookSecret } = req.body;
 
         if (!clientId) {
             return res.status(400).json({ error: 'Client ID is required' });
+        }
+
+        const webhookError = await validateWebhook(webhookUrl);
+        if (webhookError) {
+            return res.status(400).json({ error: webhookError });
         }
 
         if (!watermarkBucket || !watermarkKey) {
@@ -447,12 +503,14 @@ export const addWatermark = async (req: Request, res: Response) => {
                 title: fileName,
                 clientId,
                 bucketName: bucket,
-                key
+                key,
+                webhookUrl,
+                webhookSecret
             });
             console.log("Video registered successfully (pre-uploaded)");
         } else if (req.file) {
             // Legacy upload flow
-            videoRecord = await videoService.uploadVideo(req.file, clientId);
+            videoRecord = await videoService.uploadVideo(req.file, clientId, webhookUrl, webhookSecret);
             console.log("Video uploaded successfully for watermarking");
         } else {
             return res.status(400).json({ error: 'No file uploaded or bucket/key provided' });
@@ -486,7 +544,8 @@ export const addWatermark = async (req: Request, res: Response) => {
     }
 };
 
-export const getAllVideo = async (req: Request, res: Response) => {    try {
+export const getAllVideo = async (req: Request, res: Response) => {
+    try {
         const videos = await videoService.getAllVideo();
         return res.status(200).json({
             message: "Successfully fetched the video",
@@ -510,4 +569,65 @@ export const getVideoIdAndDownloadVideo = async (req: Request, res: Response) =>
         console.error("Failed to get video:", error);
         return res.status(500).json({ message: error.message });
     }
+};
+
+const TERMINAL_STATUSES = ['COMPLETED', 'FAILED', 'QUEUE_FAILED', 'DELETED'];
+
+export const streamVideoStatus = async (req: Request, res: Response) => {
+    const videoId = req.params.videoId;
+
+    res.writeHead(200, {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',
+    });
+
+    const send = (event: string, data: unknown) => {
+        res.write(`event: ${event}\n`);
+        res.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
+    let initial: any;
+    try {
+        initial = await videoService.getVideoByIdAndDownloadVideo(videoId);
+    } catch (error: any) {
+        send('error', { message: error.message || 'Video not found' });
+        res.end();
+        return;
+    }
+
+    send('snapshot', initial);
+
+    // If the job already finished, the snapshot is the final state
+    if (TERMINAL_STATUSES.includes(initial?.status)) {
+        res.end();
+        return;
+    }
+
+    const handlers = {
+        onProgress: (progress: number) => send('progress', { progress }),
+        onCompleted: async () => {
+            const final = await videoService.getVideoByIdAndDownloadVideo(videoId);
+            send('completed', final);
+            res.end();
+        },
+        onFailed: async () => {
+            const final = await videoService.getVideoByIdAndDownloadVideo(videoId);
+            send('failed', final);
+            res.end();
+        },
+    };
+
+    subscribeToVideo(videoId, handlers);
+
+    // Heartbeat keeps proxies/load balancers from closing the idle connection
+    const heartbeat = setInterval(() => {
+        res.write(': ping\n\n');
+    }, 15000);
+
+    req.on('close', () => {
+        clearInterval(heartbeat);
+        unsubscribeFromVideo(videoId, handlers);
+    });
 };
