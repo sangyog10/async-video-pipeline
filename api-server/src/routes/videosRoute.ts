@@ -2,7 +2,7 @@ import { Router } from "express";
 import upload from "../config/multer.config.js";
 import { handleUploadErrors } from "../middlewares/multerError.js";
 import { uploadLimiter, statusLimiter } from "../config/rateLimit.config.js";
-import { extractAudioFromVideo, getAllVideo, getVideoIdAndDownloadVideo, resizeVideo, compressVideo, createThumbnail, trimVideo, createGif, addWatermark, getUploadUrl } from "../controller/videoController.js";
+import { extractAudioFromVideo, getAllVideo, getVideoIdAndDownloadVideo, resizeVideo, compressVideo, createThumbnail, trimVideo, createGif, addWatermark, getUploadUrl, streamVideoStatus } from "../controller/videoController.js";
 
 const router = Router();
 
@@ -315,7 +315,7 @@ router.post("/trim", uploadLimiter, upload.single('video'), handleUploadErrors, 
  *                 description: Start time in seconds (default 0)
  *               duration:
  *                 type: integer
- *                 description: Duration in seconds (default: whole video)
+ *                 description: "Duration in seconds (default: whole video)"
  *     responses:
  *       202:
  *         description: Video uploaded and processing started
@@ -376,7 +376,7 @@ router.post("/create-gif", uploadLimiter, upload.single('video'), handleUploadEr
  *                 description: Opacity 0-1 (default 1)
  *               watermarkWidth:
  *                 type: integer
- *                 description: Target watermark width in px, height auto (default: original size)
+ *                 description: "Target watermark width in px, height auto (default: original size)"
  *     responses:
  *       202:
  *         description: Video uploaded and processing started
@@ -450,5 +450,28 @@ router.get("/", statusLimiter, getAllVideo);
  *         description: Internal server error
  */
 router.get("/:videoId", statusLimiter, getVideoIdAndDownloadVideo);
+
+/**
+ * @swagger
+ * /videos/{videoId}/stream:
+ *   get:
+ *     summary: Live stream of job status updates (SSE)
+ *     description: |
+ *       Opens a Server-Sent Events stream. Emits a `snapshot` event immediately,
+ *       then `progress` events while processing and a terminal `completed`/`failed`
+ *       event when the job finishes.
+ *     tags: [Videos]
+ *     parameters:
+ *       - in: path
+ *         name: videoId
+ *         schema:
+ *           type: string
+ *         required: true
+ *         description: The video ID
+ *     responses:
+ *       200:
+ *         description: text/event-stream
+ */
+router.get("/:videoId/stream", statusLimiter, streamVideoStatus);
 
 export default router;

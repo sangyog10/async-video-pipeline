@@ -1,4 +1,5 @@
 import { S3Client, CreateBucketCommand, PutObjectCommand, PutObjectCommandOutput, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { createWriteStream, existsSync, mkdirSync } from "fs";
 import { join } from 'path';
 import fs from 'fs'
@@ -6,7 +7,18 @@ import mime from 'mime-types'
 
 
 const s3Client = new S3Client({
-  endpoint: 'http://minio:9000',
+  endpoint: process.env.S3_ENDPOINT || 'http://minio:9000',
+  region: 'us-east-1',
+  credentials: {
+    accessKeyId: process.env.MINIO_ROOT_USER!,
+    secretAccessKey: process.env.MINIO_ROOT_PASSWORD!,
+  },
+  forcePathStyle: true //for minio
+});
+
+// Used to generate consumer-facing (public endpoint) presigned URLs
+const presignerClient = new S3Client({
+  endpoint: process.env.S3_PUBLIC_ENDPOINT || 'http://localhost:9000',
   region: 'us-east-1',
   credentials: {
     accessKeyId: process.env.MINIO_ROOT_USER!,
@@ -129,4 +141,18 @@ export async function downloadVideoFromAws(
     console.error("Error downloading file:", err);
     throw err;
   }
+}
+
+export async function getPresignedDownloadUrl(
+  bucketName: string,
+  key: string
+): Promise<string> {
+  const command = new GetObjectCommand({
+    Bucket: bucketName,
+    Key: key,
+  });
+
+  // Use the presigner client which is configured with the public endpoint
+  const url = await getSignedUrl(presignerClient, command, { expiresIn: 3600 });
+  return url;
 }

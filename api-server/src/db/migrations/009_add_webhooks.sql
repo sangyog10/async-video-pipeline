@@ -1,0 +1,17 @@
+ALTER TABLE Video
+ADD COLUMN webhook_url VARCHAR(512),
+ADD COLUMN webhook_secret VARCHAR(255);
+
+CREATE TABLE IF NOT EXISTS webhook_deliveries (
+    id SERIAL PRIMARY KEY,
+    event_id VARCHAR(255) UNIQUE NOT NULL,
+    video_id INT REFERENCES Video(id) ON DELETE CASCADE,
+    event VARCHAR(50) NOT NULL,
+    url VARCHAR(512) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    http_status INT,
+    attempts INT NOT NULL DEFAULT 0,
+    error TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

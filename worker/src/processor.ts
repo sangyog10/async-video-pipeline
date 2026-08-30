@@ -2,9 +2,10 @@ import { Job } from "bullmq";
 import fs from 'fs'
 import db from "./db/database.js";
 import path from "path";
-import { downloadVideoFromAws, uploadFileFromLocal, deleteVideoFromAws } from "./config/aws.config.js";
+import { downloadVideoFromAws, uploadFileFromLocal, deleteVideoFromAws, getPresignedDownloadUrl } from "./config/aws.config.js";
 import { handleAudioExtraction, handleThumbnailCreation, handleVideoCompression, handleVideoResize, handleVideoTrim, handleGifCreation, handleAddWatermark } from "./controller/index.js";
 import { videoProcessingQueue } from "./config/queue.config.js";
+import { webhookDeliveryQueue } from "./config/webhookQueue.config.js";
 import { VideoEditType } from './types/video.type.js'
 import { JobStatus } from "./types/video.type.js";
 
@@ -166,6 +167,25 @@ export const processVideoJob = async (job: Job) => {
       console.log(`Scheduled auto-deletion for video ${videoId} in 15 minutes`);
     } catch (error) {
       console.error(`Failed to schedule auto-deletion for video ${videoId}:`, error);
+    }
+
+    // Notify the caller via webhook when one is configured
+    if (job.data.webhookUrl) {
+      try {
+        const downloadUrl = await getPresignedDownloadUrl(processedBucketName, processedKey);
+        await webhookDeliveryQueue.add("webhook-delivery", {
+          eventId: `wh-${videoId}-${Date.now()}`,
+          event: "video.completed",
+          videoId,
+          url: job.data.webhookUrl,
+          secret: job.data.webhookSecret,
+          status: "COMPLETED",
+          downloadUrl,
+        });
+        console.log(`Scheduled completion webhook for video ${videoId}`);
+      } catch (error) {
+        console.error(`Failed to schedule completion webhook for video ${videoId}:`, error);
+      }
     }
 
 

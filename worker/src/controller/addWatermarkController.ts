@@ -1,6 +1,7 @@
 import path from "path";
 import fs from "fs";
-import { addWatermark, WatermarkOptions } from "../lib/index.js";
+import { addWatermark } from "../lib/index.js";
+import type { WatermarkOptions } from "../lib/index.js";
 
 export const handleAddWatermark = async (
   videoPath: string,

@@ -1,11 +1,19 @@
 import db from "../db/database.js"
 import { deleteVideoFromAws, getPresignedDownloadUrl, uploadVideoToAws } from "../config/aws.config.js"
 import { VideoBucket } from "../types/bucketName.js";
-import { JobStatus, Video, VideoEditType } from "../types/videoType.js";
+import { JobStatus, Video, VideoEditType, SafeVideo } from "../types/videoType.js";
 import { videoProcessingQueue } from "../config/queue.config.js";
 
 
 export class VideoService {
+
+  /**
+   * Strip fields clients must never see (webhook secret, stored job params).
+   */
+  private sanitize(video: Video): SafeVideo {
+    const { webhook_secret, job_params, ...safe } = video;
+    return safe;
+  }
 
   /**
    * 1. Upload video to AWS, if it fails return error
@@ -13,7 +21,7 @@ export class VideoService {
    * 3. Upload video ID to queue and set status to uploaded, if it fails, set status to failed and apply cron job
    */
 
-  async uploadVideo(file: Express.Multer.File, clientId: string): Promise<Video> {
+  async uploadVideo(file: Express.Multer.File, clientId: string, webhookUrl?: string, webhookSecret?: string): Promise<Video> {
     const key = `${Date.now()}-${file.originalname}`;
     const title = file.originalname;
     const bucketName = VideoBucket;
@@ -27,12 +35,12 @@ export class VideoService {
 
       //upload video info to database
       const sql = `
-      INSERT INTO Video(title, client_job_id, original_bucket, original_object_key)
-      VALUES($1, $2, $3, $4)
+      INSERT INTO Video(title, client_job_id, original_bucket, original_object_key, webhook_url, webhook_secret)
+      VALUES($1, $2, $3, $4, $5, $6)
       RETURNING *
     `;
 
-      const params = [title, clientId, bucketName, key];
+      const params = [title, clientId, bucketName, key, webhookUrl ?? null, webhookSecret ?? null];
 
       const videoRecord = await db.queryOne<Video>(sql, params)
 
@@ -54,16 +62,18 @@ export class VideoService {
     clientId: string;
     bucketName: string;
     key: string;
+    webhookUrl?: string;
+    webhookSecret?: string;
   }): Promise<Video> {
-    const { title, clientId, bucketName, key } = metadata;
+    const { title, clientId, bucketName, key, webhookUrl, webhookSecret } = metadata;
 
     const sql = `
-      INSERT INTO Video(title, client_job_id, original_bucket, original_object_key)
-      VALUES($1, $2, $3, $4)
+      INSERT INTO Video(title, client_job_id, original_bucket, original_object_key, webhook_url, webhook_secret)
+      VALUES($1, $2, $3, $4, $5, $6)
       RETURNING *
     `;
 
-    const params = [title, clientId, bucketName, key];
+    const params = [title, clientId, bucketName, key, webhookUrl ?? null, webhookSecret ?? null];
 
     const videoRecord = await db.queryOne<Video>(sql, params);
 
@@ -84,7 +94,14 @@ export class VideoService {
     type: VideoEditType,
     data: Record<string, unknown>
   ): Promise<void> {
-    const params = JSON.stringify(data);
+    const webhookData = video.webhook_url
+      ? { webhookUrl: video.webhook_url, webhookSecret: video.webhook_secret || undefined }
+      : {};
+
+    // job_params mirrors the queue payload so the self-healing cron can
+    // replay the exact job (including webhook config) if queueing fails.
+    const params = JSON.stringify({ ...data, ...webhookData });
+    const jobData = { ...data, ...webhookData };
 
     await db.query(
       "UPDATE Video SET job_type = $1, job_params = $2 WHERE id = $3",
@@ -92,7 +109,7 @@ export class VideoService {
     );
 
     try {
-      await videoProcessingQueue.add(type, data, { jobId: `video-${video.id}` });
+      await videoProcessingQueue.add(type, jobData, { jobId: `video-${video.id}` });
       await db.query(
         "UPDATE Video SET status = $1 WHERE id = $2",
         [JobStatus.UPLOADED, video.id]
@@ -107,12 +124,12 @@ export class VideoService {
   }
 
 
-  async getAllVideo(): Promise<Video[] | null> {
+  async getAllVideo(): Promise<SafeVideo[] | null> {
     const result = await db.query<Video>("SELECT * FROM Video")
     if (!result) {
       throw new Error("Failed to fetch result")
     }
-    return result;
+    return result.map(video => this.sanitize(video));
   }
 
 
@@ -164,7 +181,7 @@ export class VideoService {
       );
 
       return {
-        ...videoRecord,
+        ...this.sanitize(videoRecord),
         downloadUrl: downloadUrl
       };
     }
