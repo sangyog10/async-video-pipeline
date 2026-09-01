@@ -8,12 +8,20 @@ import { videoProcessingQueue } from "./config/queue.config.js";
 import { webhookDeliveryQueue } from "./config/webhookQueue.config.js";
 import { VideoEditType } from './types/video.type.js'
 import { JobStatus } from "./types/video.type.js";
+import { logger } from "./config/logger.config.js";
 
 const downloadedFileStoringFolder = './downloads'
 
 
 export const processVideoJob = async (job: Job) => {
   const { videoId, bucket, key } = job.data;
+
+  const log = logger.child({
+    jobId: job.id,
+    videoId,
+    jobType: job.name,
+    ...(job.data?.correlationId ? { correlationId: job.data.correlationId } : {}),
+  });
 
   let downloadedVideoPath: string | null = null;
   let watermarkDownloadedPath: string | null = null;
@@ -49,7 +57,7 @@ export const processVideoJob = async (job: Job) => {
           throw new Error("Compression rate is required for COMPRESS_VIDEO");
         }
         processedFilePath = await handleVideoCompression(downloadedVideoPath, compressionRate, preset || "ultrafast", async (progress) => {
-          console.log(`Video ${videoId} progress: ${progress}%`);
+          log.info({ progress }, `Job progress`);
           await job.updateProgress(progress);
         });
         break;
@@ -68,7 +76,7 @@ export const processVideoJob = async (job: Job) => {
           throw new Error("Valid startTime and endTime are required for TRIM_VIDEO");
         }
         processedFilePath = await handleVideoTrim(downloadedVideoPath, startTime, endTime, async (progress) => {
-          console.log(`Video ${videoId} progress: ${progress}%`);
+          log.info({ progress }, `Job progress`);
           await job.updateProgress(progress);
         });
         break;
@@ -84,7 +92,7 @@ export const processVideoJob = async (job: Job) => {
           startTime: gifStartTime ?? 0,
           duration: gifDuration,
         }, async (progress) => {
-          console.log(`Video ${videoId} progress: ${progress}%`);
+          log.info({ progress }, `Job progress`);
           await job.updateProgress(progress);
         });
         break;
@@ -100,7 +108,7 @@ export const processVideoJob = async (job: Job) => {
           opacity: opacity ?? 1,
           width: watermarkWidth,
         }, async (progress) => {
-          console.log(`Video ${videoId} progress: ${progress}%`);
+          log.info({ progress }, `Job progress`);
           await job.updateProgress(progress);
         });
         break;
@@ -125,11 +133,11 @@ export const processVideoJob = async (job: Job) => {
 
         // Update status to DELETED
         await db.query("UPDATE Video SET status = $1 WHERE id = $2", [JobStatus.DELETED, videoId]);
-        console.log(`Successfully deleted video ${videoId} from S3 and updated status.`);
+        log.info('Successfully deleted video from S3 and updated status.');
         return; // Exit early as there is no "processed file" to upload back
 
       default:
-        console.log("Unspecified job name:", job.name);
+        log.warn({ jobName: job.name }, "Unspecified job name");
         throw new Error(`Unsupported job type: ${job.name}`);
     }
 
@@ -145,7 +153,7 @@ export const processVideoJob = async (job: Job) => {
       "UPDATE Video SET status = $1, processed_bucket = $2, processed_object_key = $3 WHERE id = $4",
       [JobStatus.COMPLETED, processedBucketName, processedKey, videoId]
     );
-    console.log("Successfully uploaded the edited file to S3");
+    log.info('Successfully uploaded the edited file to S3');
 
     // Schedule auto-deletion 15 minutes after completion so the user can
     // download the result within the window. Deterministic jobId prevents
@@ -164,9 +172,9 @@ export const processVideoJob = async (job: Job) => {
         jobId: `delete-${videoId}`,
         delay: 15 * 60 * 1000, // 15 minutes
       });
-      console.log(`Scheduled auto-deletion for video ${videoId} in 15 minutes`);
+      log.info('Scheduled auto-deletion in 15 minutes');
     } catch (error) {
-      console.error(`Failed to schedule auto-deletion for video ${videoId}:`, error);
+      log.error({ err: error }, 'Failed to schedule auto-deletion');
     }
 
     // Notify the caller via webhook when one is configured
@@ -182,19 +190,19 @@ export const processVideoJob = async (job: Job) => {
           status: "COMPLETED",
           downloadUrl,
         });
-        console.log(`Scheduled completion webhook for video ${videoId}`);
+        log.info('Scheduled completion webhook');
       } catch (error) {
-        console.error(`Failed to schedule completion webhook for video ${videoId}:`, error);
+        log.error({ err: error }, 'Failed to schedule completion webhook');
       }
     }
 
 
   } catch (error) {
-    console.error("Error processing video job:", error);
+    log.error({ err: error }, 'Error processing video job');
     try {
       await db.query("UPDATE Video SET status = $1 WHERE id = $2", [JobStatus.FAILED, videoId]);
     } catch (dbErr) {
-      console.error("Failed to update video status to FAILED:", dbErr);
+      log.error({ err: dbErr }, 'Failed to update video status to FAILED');
     }
     throw error; // Re-throw for BullMQ to handle retry/failed
   } finally {
@@ -204,7 +212,7 @@ export const processVideoJob = async (job: Job) => {
     if (downloadedVideoPath) {
       cleanupPromises.push(
         fs.promises.rm(downloadedVideoPath).catch(err => {
-          if (err.code !== 'ENOENT') console.error(`Failed to delete ${downloadedVideoPath}:`, err);
+          if (err.code !== 'ENOENT') log.error({ err }, 'Failed to delete downloaded file');
         })
       );
     }
@@ -212,7 +220,7 @@ export const processVideoJob = async (job: Job) => {
     if (watermarkDownloadedPath) {
       cleanupPromises.push(
         fs.promises.rm(watermarkDownloadedPath).catch(err => {
-          if (err.code !== 'ENOENT') console.error(`Failed to delete ${watermarkDownloadedPath}:`, err);
+          if (err.code !== 'ENOENT') log.error({ err }, 'Failed to delete watermark file');
         })
       );
     }
@@ -220,18 +228,15 @@ export const processVideoJob = async (job: Job) => {
     if (processedFilePath) {
       cleanupPromises.push(
         fs.promises.rm(processedFilePath).catch(err => {
-          if (err.code !== 'ENOENT') console.error(`Failed to delete ${processedFilePath}:`, err);
+          if (err.code !== 'ENOENT') log.error({ err }, 'Failed to delete processed file');
         })
       );
     }
 
     try {
       await Promise.all(cleanupPromises);
-      console.log("Temporary files cleaned up successfully.");
     } catch (err) {
-      console.error("Error during file cleanup:", err);
+      log.error({ err }, 'Error during file cleanup');
     }
   }
 };
-
-

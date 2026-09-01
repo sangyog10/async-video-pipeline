@@ -154,7 +154,52 @@ The stream immediately emits a `snapshot` of the current state, then `progress` 
 | **Broker** | Redis | Backend for BullMQ, storing pending, active, and failed jobs. |
 | **Database** | PostgreSQL | Single source of truth for job metadata, status, and webhook delivery logs. |
 | **File Storage** | MinIO | S3-compatible object storage for large video files. |
+| **Monitoring** | Prometheus + Grafana | Metrics scraping, dashboards, and alerting for every service. |
+| **Logging** | pino | Structured JSON logs with correlation IDs across API → worker. |
+| **Queue UI** | Bull Board | Real-time queue inspector (`/admin/queues`). |
 | **Containerization**| Docker & Docker Compose | Isolated, reproducible environment for all services. |
+
+## 📊 Monitoring & Observability
+
+The stack ships with full observability: metrics, alerts, structured logging, and a queue inspector.
+
+| Tool | URL | Purpose |
+| :--- | :--- | :--- |
+| Prometheus | http://localhost:9090 | Scrapes `/metrics` from the API + worker, plus Redis/Postgres/MinIO exporters. |
+| Grafana | http://localhost:3001 | Pre-provisioned "Video Processing Pipeline" dashboard + Prometheus datasource. |
+| Alertmanager | http://localhost:9093 | Receives alerts from Prometheus rules (add a Slack/email receiver to enable). |
+| Bull Board | http://localhost:3000/admin/queues | Live view of queue depth, job states, and retries. |
+
+**What's measured**
+
+*   **API server** (`/metrics`): HTTP request rate, 5xx rate, p50/p95/p99 latency, jobs enqueued, Node heap/RSS.
+*   **Worker** (`worker:9100/metrics`): jobs started/completed/failed by operation, job duration percentiles, queue depth (`video_queue_depth`), webhook delivery outcomes.
+*   **Infrastructure**: Redis (clients, memory), Postgres, MinIO — via `redis-exporter`, `postgres-exporter`, and MinIO's native `/minio/v2/metrics/cluster`.
+
+**Alert rules** (`prometheus/alerts.yml`): service down (API/worker/Redis/Postgres), queue backlog > 20, elevated job failure rate, and API 5xx rate > 5%. Alerts fire to Alertmanager — wire a real receiver to get notified.
+
+**Logging & correlation IDs**
+
+Both services log structured JSON via **pino** with redaction of secrets. Every API request gets a correlation ID (pino-http `req.id`) that is forwarded into the BullMQ job data, so you can trace one request end-to-end:
+
+```bash
+# correlate an API request to its worker job
+docker logs api-server | grep <correlation-id>
+docker logs worker | grep <correlation-id>
+```
+
+**Health endpoints:** `GET /health` on the API (`:3000`) and worker (`:9100`) report DB, Redis, and MinIO status (200/503).
+
+**Optional env vars** (`.env`):
+
+```bash
+LOG_LEVEL=info              # pino log level
+METRICS_PORT=9100           # worker metrics/health port
+BULL_BOARD_USER=admin       # basic auth for /admin/queues (skip = no auth)
+BULL_BOARD_PASSWORD=admin
+GRAFANA_ADMIN_USER=admin    # Grafana login
+GRAFANA_ADMIN_PASSWORD=admin
+``` |
 
 ## 📦 Service Breakdown
 
@@ -166,7 +211,8 @@ This project consists of the following services defined in `docker-compose.yml`:
 4.  **`db`**: The PostgreSQL database.
 5.  **`minio`**: The S3-compatible object store.
 6.  **`redis`**: The message broker for the queues.
-7.  **`prometheus` / `grafana` / `cadvisor`**: Container + infrastructure monitoring.
+7.  **`prometheus` / `grafana` / `alertmanager`**: Metrics collection, dashboards, and alerting.
+8.  **`redis-exporter` / `postgres-exporter`**: Export Redis/Postgres metrics to Prometheus. MinIO exposes its own Prometheus endpoint.
 
 ## 🔌 API Endpoints
 

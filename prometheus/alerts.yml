@@ -1,0 +1,61 @@
+groups:
+  - name: video-pipeline
+    rules:
+      - alert: ApiServerDown
+        expr: up{job="api-server"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API server is unreachable"
+
+      - alert: WorkerDown
+        expr: up{job="worker"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Worker is unreachable"
+
+      - alert: RedisDown
+        expr: up{job="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis is unreachable"
+
+      - alert: PostgresDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Postgres is unreachable"
+
+      - alert: QueueBacklogHigh
+        expr: video_queue_depth{state="waiting"} > 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High video queue backlog ({{ $value }} waiting jobs)"
+
+      - alert: JobFailureRateHigh
+        expr: sum(rate(video_jobs_failed_total[5m])) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Elevated video job failure rate"
+
+      - alert: Http5xxRateHigh
+        expr: |
+          sum(rate(http_requests_total{status=~"5.."}[5m]))
+          / clamp_min(sum(rate(http_requests_total[5m])), 1)
+          > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API 5xx error rate above 5%"
