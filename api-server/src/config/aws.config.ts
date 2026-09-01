@@ -4,7 +4,7 @@ import { createWriteStream, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 
 
-const s3Client = new S3Client({
+export const s3Client = new S3Client({
   endpoint: process.env.S3_ENDPOINT || 'http://minio:9000',
   region: 'us-east-1',
   credentials: {

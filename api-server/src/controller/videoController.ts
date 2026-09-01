@@ -84,7 +84,8 @@ export const extractAudioFromVideo = async (req: Request, res: Response) => {
                 videoId: videoRecord.id,
                 bucket: original_bucket,
                 key: original_object_key,
-            }
+            },
+            { correlationId: String(req.id) }
         );
         console.log("Video added to the queue and updated the status");
 
@@ -156,7 +157,8 @@ export const resizeVideo = async (req: Request, res: Response) => {
                 bucket: original_bucket,
                 key: original_object_key,
                 dimension,
-            }
+            },
+            { correlationId: String(req.id) }
         );
         console.log("Video added to the queue and updated the status");
 
@@ -223,7 +225,8 @@ export const compressVideo = async (req: Request, res: Response) => {
                 key: original_object_key,
                 compressionRate: compressionRate,
                 preset: preset || "ultrafast",
-            }
+            },
+            { correlationId: String(req.id) }
         );
         console.log("Video added to the queue and updated the status");
 
@@ -288,7 +291,8 @@ export const createThumbnail = async (req: Request, res: Response) => {
                 bucket: original_bucket,
                 key: original_object_key,
                 timestamp: timestamp,
-            }
+            },
+            { correlationId: String(req.id) }
         );
         console.log("Video added to the queue and updated the status");
 
@@ -361,7 +365,8 @@ export const trimVideo = async (req: Request, res: Response) => {
                 key: original_object_key,
                 startTime: start,
                 endTime: end,
-            }
+            },
+            { correlationId: String(req.id) }
         );
         console.log("Video added to the queue and updated the status");
 
@@ -443,7 +448,8 @@ export const createGif = async (req: Request, res: Response) => {
                 width: gifWidth,
                 startTime: gifStartTime,
                 duration: gifDuration,
-            }
+            },
+            { correlationId: String(req.id) }
         );
         console.log("Video added to the queue and updated the status");
 
@@ -529,7 +535,8 @@ export const addWatermark = async (req: Request, res: Response) => {
                 position: pos,
                 opacity: opacityValue,
                 watermarkWidth: widthValue,
-            }
+            },
+            { correlationId: String(req.id) }
         );
         console.log("Video added to the queue and updated the status");
 

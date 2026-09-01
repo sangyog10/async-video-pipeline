@@ -1,0 +1,14 @@
+route:
+  group_by: ['alertname']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: 'default'
+
+receivers:
+  - name: 'default'
+    # Add a real notification channel here, e.g. Slack:
+    # slack_configs:
+    #   - api_url: 'https://hooks.slack.com/services/XXXX/YYYY/ZZZZ'
+    #     channel: '#alerts'
+    #     send_resolved: true

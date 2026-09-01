@@ -3,6 +3,7 @@ import { deleteVideoFromAws, getPresignedDownloadUrl, uploadVideoToAws } from ".
 import { VideoBucket } from "../types/bucketName.js";
 import { JobStatus, Video, VideoEditType, SafeVideo } from "../types/videoType.js";
 import { videoProcessingQueue } from "../config/queue.config.js";
+import { jobsEnqueuedTotal } from "../config/metrics.config.js";
 
 
 export class VideoService {
@@ -92,16 +93,19 @@ export class VideoService {
   async enqueueVideoJob(
     video: Video,
     type: VideoEditType,
-    data: Record<string, unknown>
+    data: Record<string, unknown>,
+    options?: { correlationId?: string }
   ): Promise<void> {
     const webhookData = video.webhook_url
       ? { webhookUrl: video.webhook_url, webhookSecret: video.webhook_secret || undefined }
       : {};
 
+    const correlationData = options?.correlationId ? { correlationId: options.correlationId } : {};
+
     // job_params mirrors the queue payload so the self-healing cron can
     // replay the exact job (including webhook config) if queueing fails.
-    const params = JSON.stringify({ ...data, ...webhookData });
-    const jobData = { ...data, ...webhookData };
+    const params = JSON.stringify({ ...data, ...webhookData, ...correlationData });
+    const jobData = { ...data, ...webhookData, ...correlationData };
 
     await db.query(
       "UPDATE Video SET job_type = $1, job_params = $2 WHERE id = $3",
@@ -110,6 +114,7 @@ export class VideoService {
 
     try {
       await videoProcessingQueue.add(type, jobData, { jobId: `video-${video.id}` });
+      jobsEnqueuedTotal.labels(type).inc();
       await db.query(
         "UPDATE Video SET status = $1 WHERE id = $2",
         [JobStatus.UPLOADED, video.id]
